@@ -1,0 +1,8 @@
+[wrap-git]
+url = https://github.com/is4s/aspn-generated.git
+revision = 8edae7eeccbab1313dea3520f1b08d9b7973a82d
+depth = 1
+
+[provide]
+aspn23 = aspn_c_dep
+aspn23-eigen = aspn_eigen_dep

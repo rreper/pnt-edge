@@ -1,0 +1,21 @@
+[Unit]
+Description=pnt-edge navigation filter appliance
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/pnt-edge /etc/pnt-edge/pnt-edge.json
+Restart=on-failure
+RestartSec=2
+RuntimeDirectory=pnt-edge
+User=pnt-edge
+Group=pnt-edge
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/run/pnt-edge /var/lib/pnt-edge
+WatchdogSec=0
+
+[Install]
+WantedBy=multi-user.target

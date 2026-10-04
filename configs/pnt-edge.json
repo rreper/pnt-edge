@@ -1,0 +1,21 @@
+{
+  // pnt-edge appliance configuration. Paths are relative to this file.
+  "filter_config": "filters/pos_ins.json",
+  "legacy_q_rotation": false,
+  "logging_level": "INFO",
+  "input": {
+    "type": "lcm_udp",
+    "url": "udpm://239.255.76.67:7667?ttl=0",
+    "subscribe_to": "^/sensor/"
+  },
+  "nmea": {
+    "udp_targets": ["192.168.10.255:10110"],
+    "tcp_port": 10110,
+    "bind_address": "0.0.0.0",
+    "talker": "GN",
+    "rate_hz": 1.0,
+    "utc_offset_sec": 0,
+    "sentences": ["GGA", "RMC", "VTG", "HDT", "GST", "ZDA", "PASHR"]
+  },
+  "status": { "file": "/run/pnt-edge/status.json", "interval_sec": 1.0 }
+}
