@@ -75,3 +75,13 @@ the UI runs only over TLS; secrets never in the repository; the daemon drops pri
 - Integrity monitoring (source exclusion, PACE state, protection level) is developed in a separate private
   repository as a Cobra orchestration plugin; pnt-edge will surface its state through NMEA fix quality, GST and
   `$PPNT,STATUS`.
+
+## Integrity status on the tactical interface
+
+`src/integrity.hpp` reads the filter's registry group `integrity/status` (written by an integrity-monitoring
+orchestration when one is linked; the algorithm lives outside this repository) and maps it: PACE state to the
+GGA fix quality and RMC status, the whole group to `$PPNT,INTEG` once per epoch and to the `integrity` object of
+the status snapshot, and the PACE state into the one-word health. The plugin is built as a meson subproject
+placed at `subprojects/cobra-integrity` (not part of this repository) when the `integrity` feature is enabled,
+against the same Cobra subproject, and main registers it under the name `protected`.
+

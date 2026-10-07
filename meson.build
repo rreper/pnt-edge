@@ -12,13 +12,25 @@ pntos = subproject('pntos-cpp', default_options: ['tests=false', 'apps=false', '
 cobra_dep = pntos.get_variable('cobra_dep')
 thread_dep = dependency('threads')
 
+# Optional integrity-monitoring orchestration: an out-of-tree Cobra plugin placed (symlinked or copied) at
+# subprojects/cobra-integrity and enabled with -Dintegrity=enabled. It builds against the same Cobra subproject,
+# so the plugin registers with the filter this executable runs; the filter config may then select
+# "orchestration": "protected" and the integrity status reaches the NMEA stream and the status file.
+extra_deps = []
+extra_args = []
+if get_option('integrity').enabled() or (get_option('integrity').auto() and import('fs').is_dir('subprojects/cobra-integrity'))
+  integrity_proj = subproject('cobra-integrity', default_options: ['tests=false'])
+  extra_deps += integrity_proj.get_variable('integrity_dep')
+  extra_args += '-DPNT_EDGE_HAS_INTEGRITY'
+endif
+
 edge_inc = include_directories('src')
 edge_lib = static_library('pnt-edge-core',
-  'src/nmea.cpp', 'src/inputs.cpp', 'src/outputs.cpp', 'src/status.cpp', 'src/edge_config.cpp',
+  'src/nmea.cpp', 'src/inputs.cpp', 'src/outputs.cpp', 'src/status.cpp', 'src/edge_config.cpp', 'src/integrity.cpp',
   include_directories: edge_inc, dependencies: [cobra_dep, thread_dep])
 edge_dep = declare_dependency(link_with: edge_lib, include_directories: edge_inc, dependencies: [cobra_dep, thread_dep])
 
-executable('pnt-edge', 'src/main.cpp', dependencies: [edge_dep], install: true)
+executable('pnt-edge', 'src/main.cpp', dependencies: [edge_dep] + extra_deps, cpp_args: extra_args, install: true)
 
 if get_option('tests')
   gtest_proj = subproject('gtest')

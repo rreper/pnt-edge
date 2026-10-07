@@ -1,1 +1,2 @@
 option('tests', type: 'boolean', value: true, description: 'Build the unit tests')
+option('integrity', type: 'feature', value: 'disabled', description: 'Link the cobra-integrity plugin (pkg-config) so the protected orchestration is available')

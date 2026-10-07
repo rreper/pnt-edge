@@ -35,6 +35,7 @@ struct NmeaOptions {
   std::string talker = "GN";
   std::shared_ptr<const pntos::cobra::nav::Geoid> geoid;  ///< for the MSL altitude and geoid separation in GGA
   bool gga = true, rmc = true, vtg = true, hdt = true, gst = true, zda = true, pashr = true;
+  bool integ = true;  ///< $PPNT,INTEG after the epoch's sentences, when an integrity status exists (see integrity.hpp)
 };
 
 std::string gga(const Pva& p, const NmeaOptions& o);

@@ -7,6 +7,10 @@
 #include "nmea.hpp"
 #include "outputs.hpp"
 #include "status.hpp"
+#include "integrity.hpp"
+#ifdef PNT_EDGE_HAS_INTEGRITY
+#include <cobra_integrity/register.hpp>
+#endif
 
 #include <pntos/cobra/app/AppBuilder.hpp>
 #include <pntos/cobra/app/Filter.hpp>
@@ -24,6 +28,9 @@ void on_signal(int) { g_stop = true; }
 }  // namespace
 
 int main(int argc, char** argv) {
+#ifdef PNT_EDGE_HAS_INTEGRITY
+  cobra_integrity::register_plugins();  // makes "orchestration": "protected" available to the filter config
+#endif
   if (argc < 2 || std::string(argv[1]) == "-h" || std::string(argv[1]) == "--help") {
     std::cerr << "usage: pnt-edge config.json [--input-log file] [--once] [--print-status]\n";
     return argc < 2 ? 2 : 0;
@@ -72,6 +79,7 @@ int main(int argc, char** argv) {
     auto enabled = [&](const char* s) { return std::find(cfg.nmea.sentences.begin(), cfg.nmea.sentences.end(), s) != cfg.nmea.sentences.end(); };
     nopt.gga = enabled("GGA"); nopt.rmc = enabled("RMC"); nopt.vtg = enabled("VTG"); nopt.hdt = enabled("HDT");
     nopt.gst = enabled("GST"); nopt.zda = enabled("ZDA"); nopt.pashr = enabled("PASHR");
+    nopt.integ = enabled("INTEG");
     edge::NmeaOutput out(cfg.nmea.udp_targets, cfg.nmea.bind_address, cfg.nmea.tcp_port);
     const std::int64_t utc_offset_ns = static_cast<std::int64_t>(cfg.nmea.utc_offset_sec * 1e9);
     const std::int64_t min_gap_ns = cfg.nmea.rate_hz > 0 ? static_cast<std::int64_t>(1e9 / cfg.nmea.rate_hz) : 0;
@@ -90,7 +98,10 @@ int main(int argc, char** argv) {
       last_solution_wall = std::chrono::steady_clock::now();
       if (min_gap_ns > 0 && last_emitted_tov != 0 && p.tov_ns - last_emitted_tov < min_gap_ns - 1'000'000) return;
       last_emitted_tov = p.tov_ns;
+      const auto integ = edge::integrity_from_registry(filter);
+      p.fix_quality = edge::fix_quality_for(integ, p.fix_quality);
       for (const auto& s : edge::sentences(p, nopt)) out.send(s);
+      if (nopt.integ && integ.present) out.send(edge::integ_sentence(integ));
       status.nmea_sentences = out.sentences_sent();
     });
 
@@ -119,6 +130,7 @@ int main(int argc, char** argv) {
       snap.input = input->counters();
       snap.filter_error = filter.error_logged();
       snap.gating = edge::gating_from_registry(filter);
+      snap.integrity = edge::integrity_from_registry(filter);
       snap.tcp_clients = out.tcp_clients();
       const auto j = edge::status_to_json(snap);
       edge::write_status_file(cfg.status.file, j);

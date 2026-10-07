@@ -6,6 +6,8 @@
 #include "nmea.hpp"
 
 #include <nlohmann/json.hpp>
+#include "integrity.hpp"
+
 #include <pntos/cobra/app/Filter.hpp>
 
 #include <chrono>
@@ -22,6 +24,7 @@ struct StatusSnapshot {
   double last_solution_age_sec = -1;    ///< wall seconds since the last published solution, -1 = none yet
   bool filter_error = false;
   nlohmann::json gating;                ///< registry group fusion/gating, if present
+  IntegrityStatus integrity;            ///< registry group integrity/status, if an integrity plugin is linked
   std::size_t tcp_clients = 0;
 };
 

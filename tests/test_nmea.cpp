@@ -1,3 +1,4 @@
+#include "integrity.hpp"
 #include "nmea.hpp"
 
 #include <gtest/gtest.h>
@@ -61,4 +62,35 @@ TEST(Nmea, SentencesFromAPva) {
   // dead reckoning flag
   p.fix_quality = 6;
   EXPECT_NE(rmc(p, o).find(",E*"), std::string::npos);
+}
+
+TEST(Integrity, FixQualityAndIntegSentence) {
+  edge::IntegrityStatus none;
+  EXPECT_EQ(edge::fix_quality_for(none, 1), 1);
+  edge::IntegrityStatus s;
+  s.present = true;
+  s.pace = "PRIMARY";
+  s.hpl_m = 23.46;
+  s.hal_m = 75.0;
+  s.fault_detection = true;
+  EXPECT_EQ(edge::fix_quality_for(s, 1), 1);
+  s.pace = "ALTERNATE";
+  s.excluded = {"gnss"};
+  s.alarm = true;
+  EXPECT_EQ(edge::fix_quality_for(s, 1), 6);
+  const std::string sentence = edge::integ_sentence(s);
+  EXPECT_EQ(sentence.substr(0, 40), "$PPNT,INTEG,ALTERNATE,23.5,75.0,1,1,gnss");
+  EXPECT_EQ(sentence.substr(sentence.size() - 2), "\r\n");
+  const auto star = sentence.find('*');
+  EXPECT_EQ(sentence.substr(star + 1, 2), edge::nmea_checksum(sentence.substr(1, star - 1)));
+  s.pace = "CONTINGENCY";
+  EXPECT_EQ(edge::fix_quality_for(s, 1), 6);
+  s.pace = "EMERGENCY";
+  s.excluded = {"gnss", "cell"};
+  EXPECT_EQ(edge::fix_quality_for(s, 1), 0);
+  EXPECT_NE(edge::integ_sentence(s).find(",gnss+cell*"), std::string::npos);
+  auto j = edge::integrity_to_json(s);
+  EXPECT_EQ(j["pace"], "EMERGENCY");
+  EXPECT_EQ(j["excluded"].size(), 2u);
+  EXPECT_TRUE(edge::integrity_to_json(none).empty());
 }

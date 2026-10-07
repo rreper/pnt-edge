@@ -4,6 +4,7 @@
 #include "nmea.hpp"
 #include "outputs.hpp"
 #include "status.hpp"
+#include "integrity.hpp"
 
 #include <pntos/cobra/app/AppBuilder.hpp>
 
@@ -107,4 +108,15 @@ TEST(Edge, ReplayProducesNmeaAndStatus) {
   std::ifstream in(path);
   ASSERT_TRUE(in.good());
   EXPECT_EQ(filter.stop(), 0);
+}
+
+TEST(Edge, IntegrityAbsentWithoutThePlugin) {
+  auto app = pntos::cobra::jsoncfg::load_app_config(cobra("configs/pos_ins.json"));
+  pntos::cobra::app::RunOptions o;
+  o.progress = false;
+  pntos::cobra::Filter f(app, o);
+  auto s = edge::integrity_from_registry(f);
+  EXPECT_FALSE(s.present);
+  EXPECT_EQ(edge::fix_quality_for(s, 1), 1);
+  f.stop();
 }

@@ -1,0 +1,8 @@
+{
+  // Bench configuration for a build with the integrity plugin (-Dintegrity=enabled, plugin at subprojects/cobra-integrity):
+  // the protected two-source filter on the Cobra example log, NMEA with $PPNT,INTEG on localhost.
+  "filter_config": "../subprojects/cobra-integrity/configs/pos_ins_protected.json",
+  "input": { "type": "lcm_log", "path": "../subprojects/pntos-cpp/testdata/example_60s.log", "speed": 5, "loop": false },
+  "nmea": { "udp_targets": ["127.0.0.1:10111"], "tcp_port": 0, "rate_hz": 1.0, "sentences": ["GGA", "RMC", "GST", "INTEG"] },
+  "status": { "file": "/tmp/pnt-edge/status-protected.json", "interval_sec": 1.0 }
+}

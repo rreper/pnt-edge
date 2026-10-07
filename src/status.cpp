@@ -20,6 +20,7 @@ json status_to_json(const StatusSnapshot& s) {
   j["filter_error"] = s.filter_error;
   j["tcp_clients"] = s.tcp_clients;
   j["gating"] = s.gating;
+  j["integrity"] = integrity_to_json(s.integrity);
   if (s.last_solution) {
     const Pva& p = *s.last_solution;
     j["last_solution"] = {{"tov_s", p.tov_ns * 1e-9}, {"lat_deg", p.lat_rad * 180 / M_PI}, {"lon_deg", p.lon_rad * 180 / M_PI},
@@ -33,6 +34,11 @@ json status_to_json(const StatusSnapshot& s) {
   else if (s.last_solution_age_sec >= 0 && s.last_solution_age_sec < 5) health = "ok";
   else if (s.input.pushed > 0 && s.last_solution_age_sec < 0) health = "aligning";
   else if (s.last_solution_age_sec >= 5) health = "stale";
+  if (s.integrity.present && health == "ok") {
+    if (s.integrity.pace == "EMERGENCY") health = "emergency";
+    else if (s.integrity.pace == "CONTINGENCY") health = "contingency";
+    else if (s.integrity.pace == "ALTERNATE") health = "alternate";
+  }
   j["health"] = health;
   return j;
 }
