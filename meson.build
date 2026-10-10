@@ -24,17 +24,22 @@ if get_option('integrity').enabled() or (get_option('integrity').auto() and impo
   extra_args += '-DPNT_EDGE_HAS_INTEGRITY'
 endif
 
-edge_inc = include_directories('src')
+edge_inc = include_directories('src', 'third_party')
+www_install_dir = get_option('datadir') / 'pnt-edge' / 'www'
+edge_args = ['-DPNT_EDGE_VERSION="' + meson.project_version() + '"',
+             '-DPNT_EDGE_WWW="' + (get_option('prefix') / www_install_dir) + '"']
 edge_lib = static_library('pnt-edge-core',
   'src/nmea.cpp', 'src/inputs.cpp', 'src/outputs.cpp', 'src/status.cpp', 'src/edge_config.cpp', 'src/integrity.cpp',
-  include_directories: edge_inc, dependencies: [cobra_dep, thread_dep])
+  'src/web/hub.cpp', 'src/web/auth.cpp', 'src/web/server.cpp',
+  include_directories: edge_inc, dependencies: [cobra_dep, thread_dep], cpp_args: edge_args)
 edge_dep = declare_dependency(link_with: edge_lib, include_directories: edge_inc, dependencies: [cobra_dep, thread_dep])
 
-executable('pnt-edge', 'src/main.cpp', dependencies: [edge_dep] + extra_deps, cpp_args: extra_args, install: true)
+executable('pnt-edge', 'src/main.cpp', dependencies: [edge_dep] + extra_deps, cpp_args: extra_args + edge_args, install: true)
+install_subdir('www', install_dir: get_option('datadir') / 'pnt-edge')
 
 if get_option('tests')
   gtest_proj = subproject('gtest')
-  test_exe = executable('test_pnt_edge', 'tests/test_nmea.cpp', 'tests/test_edge.cpp',
+  test_exe = executable('test_pnt_edge', 'tests/test_nmea.cpp', 'tests/test_edge.cpp', 'tests/test_web.cpp',
     dependencies: [edge_dep, gtest_proj.get_variable('gtest_main_dep')])
   test('pnt-edge', test_exe, protocol: 'gtest', timeout: 300,
     env: ['PNT_EDGE_SRCDIR=' + meson.project_source_root()])

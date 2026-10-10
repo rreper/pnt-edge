@@ -3,5 +3,6 @@
   "filter_config": "../subprojects/pntos-cpp/configs/pos_ins.json",
   "input": { "type": "lcm_log", "path": "../subprojects/pntos-cpp/testdata/example_60s.log", "speed": 5, "loop": false },
   "nmea": { "udp_targets": ["127.0.0.1:10110"], "tcp_port": 10110, "rate_hz": 1.0 },
+  "web": {"tactical": {"bind": "127.0.0.1", "port": 8080}, "maintenance": {"bind": "127.0.0.1", "port": 8081}, "users_file": "/tmp/pnt-edge/users.json", "audit_file": "/tmp/pnt-edge/audit.log"},
   "status": { "file": "/tmp/pnt-edge/status.json", "interval_sec": 1.0 }
 }

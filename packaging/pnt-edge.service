@@ -6,7 +6,7 @@ Wants=network-online.target
 [Service]
 Type=simple
 ExecStart=/usr/bin/pnt-edge /etc/pnt-edge/pnt-edge.json
-Restart=on-failure
+Restart=always  # exit code 3 = restart requested from the maintenance UI
 RestartSec=2
 RuntimeDirectory=pnt-edge
 User=pnt-edge
@@ -14,7 +14,8 @@ Group=pnt-edge
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/run/pnt-edge /var/lib/pnt-edge
+ReadWritePaths=/run/pnt-edge /var/lib/pnt-edge /var/log/pnt-edge /etc/pnt-edge
+LogsDirectory=pnt-edge
 WatchdogSec=0
 
 [Install]

@@ -16,7 +16,7 @@ characters per sentence. Fields never contain commas; empty fields mean "unchang
 | `$PPNT,OUT,S,<rate_hz>,<sentence list>*hh` | in | set NMEA rate and sentence selection, e.g. `$PPNT,OUT,S,5,GGA+HDT+GST` |
 | `$PPNT,LEVERARM,S,<label>,<x>,<y>,<z>*hh` | in | set a lever arm (platform frame, metres) of the named processor; takes effect on the next filter restart |
 | `$PPNT,HEADING,S,<deg>,<sigma_deg>*hh` | in | provide an initial heading for manual-heading alignment |
-| `$PPNT,RESET,S,<what>*hh` | in | `filter` re-aligns from scratch, `app` restarts the service |
+| `$PPNT,RESET,S,<what>*hh` | in | `filter` re-aligns from scratch, `app` restarts the service (the same two actions as the web surfaces' reset, see docs/WEB_UI.md) |
 | `$PPNT,TIME,Q*hh` / `$PPNT,TIME,R,<utc>,<source>,<offset_ms>*hh` | in / out | time status (source: gnss, ptp, ntp, free) |
 | `$PPNT,ACK,<command>,<result>[,<message>]*hh` | out | acknowledgement: result `OK`, `ERR` or `BUSY` |
 

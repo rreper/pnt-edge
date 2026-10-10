@@ -12,3 +12,13 @@
 
 Gates: unit tests and the replay smoke test in CI before every push; from A.2 on, a bench run with real serial
 devices before each phase is closed.
+
+## Phase B, delivered (2026-10-10): web surfaces
+
+Tactical display and maintenance UI served by the daemon (cpp-httplib, plain ES modules, uPlot), login with
+PBKDF2 users and sessions, bearer token for fleet readers, API v1 with SSE, control commands (filter reset,
+application restart, NMEA settings, heading, lever arms, config save) with an audit log, in-memory solution
+history and log through Cobra v0.2.6's log sink. `docs/WEB_UI.md`. Still open from the original Phase B: TLS
+(a proxy for now), persistent history across restarts, the integrity timeline fed from the plugin's own events
+rather than status polling.
+

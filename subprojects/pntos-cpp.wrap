@@ -1,5 +1,5 @@
 [wrap-git]
 directory = pntos-cpp
 url = https://github.com/rreper/Cobra.git
-revision = v0.2.4
+revision = v0.2.6
 depth = 1

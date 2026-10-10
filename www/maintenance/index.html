@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>PNT maintenance</title><meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="/static/app.css"><link rel="stylesheet" href="/static/uPlot.min.css"></head>
+<body>
+<header><h1>PNT maintenance</h1><span id="health" class="badge">starting</span><span id="pace" class="badge hidden"></span>
+<nav id="nav"><a data-tab="overview" class="active">Overview</a><a data-tab="inputs">Inputs</a><a data-tab="solution">Solution</a><a data-tab="integrity">Integrity</a><a data-tab="outputs">Outputs</a><a data-tab="log">Log</a><a data-tab="config">Config</a></nav>
+<span class="spacer"></span><span id="link" class="muted">connecting…</span><span id="who" class="muted"></span><form method="post" action="/logout" style="margin:0"><button class="quiet">Sign out</button></form></header>
+<main>
+<section id="tab-overview" class="grid">
+  <div class="panel"><h2>Health</h2><div class="kv"><dt>Health</dt><dd id="o-health">—</dd><dt>Uptime</dt><dd id="o-uptime">—</dd><dt>Solutions</dt><dd id="o-solutions">—</dd><dt>Solution age</dt><dd id="o-age">—</dd><dt>Filter error</dt><dd id="o-error">—</dd><dt>pnt-edge</dt><dd id="o-version">—</dd></div></div>
+  <div class="panel"><h2>Position</h2><div class="kv"><dt>Latitude</dt><dd id="o-lat">—</dd><dt>Longitude</dt><dd id="o-lon">—</dd><dt>Altitude HAE</dt><dd id="o-alt">—</dd><dt>Heading</dt><dd id="o-hdg">—</dd><dt>Speed</dt><dd id="o-spd">—</dd><dt>1σ N / E / D</dt><dd id="o-sig">—</dd></div></div>
+  <div class="panel"><h2>Integrity</h2><div class="kv"><dt>PACE</dt><dd id="o-pace">—</dd><dt>HPL / HAL</dt><dd id="o-hpl">—</dd><dt>Excluded</dt><dd id="o-excl">—</dd><dt>Alarm</dt><dd id="o-alarm">—</dd><dt>Fault detection</dt><dd id="o-fd">—</dd></div></div>
+  <div class="panel"><h2>Recent events</h2><table><tbody id="o-events"></tbody></table></div>
+</section>
+<section id="tab-inputs" class="hidden">
+  <div class="panel"><h2>Input</h2><div class="kv"><dt>Pushed</dt><dd id="i-pushed">—</dd><dt>Decode failures</dt><dd id="i-fail">—</dd><dt>Last time of validity</dt><dd id="i-tov">—</dd></div></div>
+  <div class="panel"><h2>Channels</h2><table><thead><tr><th>Channel</th><th class="num">Messages</th><th class="num">Rate (1/s)</th></tr></thead><tbody id="i-channels"></tbody></table></div>
+  <div class="panel"><h2>Gating</h2><table><thead><tr><th>Processor</th><th class="num">Accepted</th><th class="num">Rejected</th><th class="num">Last χ²</th></tr></thead><tbody id="i-gating"></tbody></table></div>
+</section>
+<section id="tab-solution" class="hidden">
+  <div class="panel"><h2>Track (local NED) <label class="muted" style="float:right"><input type="checkbox" id="follow" checked style="width:auto"> follow</label></h2><canvas id="track" class="track"></canvas></div>
+  <div class="panel"><h2>Horizontal 1σ and HPL (m)</h2><div id="p-sigma"></div></div>
+  <div class="panel"><h2>Speed (m/s) and heading (°)</h2><div id="p-motion"></div></div>
+  <div class="row"><label>Window <select id="window"><option value="600">10 min</option><option value="1800">30 min</option><option value="7200" selected>2 h</option></select></label></div>
+</section>
+<section id="tab-integrity" class="hidden">
+  <div class="panel"><h2>Status</h2><table><tbody id="g-status"></tbody></table></div>
+  <div class="panel"><h2>Timeline</h2><table><thead><tr><th>Time (UTC)</th><th>Event</th><th>Detail</th></tr></thead><tbody id="g-events"></tbody></table></div>
+</section>
+<section id="tab-outputs" class="hidden">
+  <div class="panel"><h2>NMEA</h2><div class="kv"><dt>Sentences sent</dt><dd id="n-sent">—</dd><dt>TCP clients</dt><dd id="n-tcp">—</dd><dt>UDP targets</dt><dd id="n-udp">—</dd><dt>Rate</dt><dd id="n-rate">—</dd><dt>Sentences</dt><dd id="n-sentences">—</dd></div></div>
+  <div class="panel"><h2>Change NMEA output</h2><div class="row"><label>Rate Hz<input id="f-rate" type="number" step="0.5" min="0"></label><label>Sentences (space separated)<input id="f-sentences"></label><label>UDP targets (space separated host:port)<input id="f-udp"></label></div><p><button id="apply-nmea">Apply</button> <span class="muted">Takes effect immediately and is saved to the config.</span></p></div>
+  <div class="panel"><h2>Filter commands</h2><div class="row"><label>Initial heading °<input id="f-hdg" type="number" step="0.1"></label><label>σ °<input id="f-hdgs" type="number" step="0.1" value="1"></label><button id="apply-hdg">Set heading</button></div>
+  <div class="row" style="margin-top:8px"><label>Lever arm label<input id="f-la" value="pos"></label><label>x<input id="f-lax" type="number" step="0.01"></label><label>y<input id="f-lay" type="number" step="0.01"></label><label>z<input id="f-laz" type="number" step="0.01"></label><button id="apply-la">Set lever arm</button></div>
+  <p class="muted">Heading and lever arms are written to the filter config and take effect on the next filter reset.</p>
+  <p><button id="reset-filter" class="danger">Reset filter</button> <button id="reset-app" class="danger">Restart application</button> <span id="cmd-result" class="muted"></span></p></div>
+</section>
+<section id="tab-log" class="hidden">
+  <div class="panel"><h2>Log <label class="muted" style="float:right">level <select id="log-level" style="width:auto"><option>DEBUG</option><option selected>INFO</option><option>WARN</option><option>ERROR</option></select></label></h2><div id="log" class="log"></div></div>
+</section>
+<section id="tab-config" class="hidden">
+  <div class="panel"><h2>pnt-edge config</h2><textarea id="cfg-edge"></textarea><p><button id="save-edge">Save</button> <span class="muted">Written to the config file; NMEA settings apply immediately, the rest on restart.</span> <span id="cfg-result" class="muted"></span></p></div>
+  <div class="panel"><h2>Filter config (read-only)</h2><textarea id="cfg-filter" readonly></textarea></div>
+</section>
+</main>
+<script src="/static/uPlot.iife.min.js"></script>
+<script type="module" src="/app/maint.js"></script>
+</body></html>

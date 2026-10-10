@@ -17,5 +17,6 @@
     "utc_offset_sec": 0,
     "sentences": ["GGA", "RMC", "VTG", "HDT", "GST", "ZDA", "PASHR"]
   },
+  "web": {"tactical": {"bind": "0.0.0.0", "port": 8080}, "maintenance": {"bind": "0.0.0.0", "port": 8081}, "users_file": "/etc/pnt-edge/users.json", "api_token": "", "audit_file": "/var/log/pnt-edge/audit.log"},
   "status": { "file": "/run/pnt-edge/status.json", "interval_sec": 1.0 }
 }

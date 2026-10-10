@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>PNT maintenance — login</title><meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="/static/app.css"></head>
+<body><main><form class="panel login" method="post" action="/login"><h2>Maintenance login</h2>
+<p><label>User<input name="user" autocomplete="username" required></label></p>
+<p><label>Password<input name="password" type="password" autocomplete="current-password" required></label></p>
+<p id="failed" class="muted hidden">Login failed.</p>
+<p><button type="submit">Sign in</button></p>
+<p class="muted">No users yet? On the device: <code>pnt-edge --set-password &lt;user&gt;</code>.</p></form></main>
+<script>if (location.search.includes('failed')) document.getElementById('failed').classList.remove('hidden');</script>
+</body></html>

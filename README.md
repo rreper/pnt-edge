@@ -47,6 +47,12 @@ docs/       DESIGN.md, ROADMAP.md, COMMAND_PROTOCOL.md
 tests/      GoogleTest (NMEA formatting, config, end-to-end replay)
 ```
 
+## Web surfaces
+
+The daemon serves a tactical display (no login, reset button) and a maintenance UI (login, full status and
+control) from `www/`, plus a JSON API with Server-Sent Events that a fleet server can read with a bearer token:
+`docs/WEB_UI.md`. Set the first maintenance password with `pnt-edge <config> --set-password admin`.
+
 ## Integrity monitoring (optional)
 
 pnt-edge can link an out-of-tree Cobra orchestration plugin that monitors the aiding sources (solution

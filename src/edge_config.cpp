@@ -49,7 +49,38 @@ EdgeConfig edge_config_from_json(const json& j, const std::string& base_dir) {
     c.status.file = s.value("file", c.status.file);
     c.status.interval_sec = s.value("interval_sec", 1.0);
   }
+  if (j.contains("web")) {
+    const json& w = j.at("web");
+    auto surface = [&](const char* key, WebSurfaceConfig& out) {
+      if (!w.contains(key)) return;
+      const json& x = w.at(key);
+      if (x.is_boolean()) {
+        if (!x.get<bool>()) out.port = 0;
+        return;
+      }
+      out.bind = x.value("bind", out.bind);
+      out.port = x.value("port", out.port);
+    };
+    surface("tactical", c.web.tactical);
+    surface("maintenance", c.web.maintenance);
+    c.web.www = resolve(base_dir, w.value("www", ""));
+    c.web.users_file = resolve(base_dir, w.value("users_file", c.web.users_file));
+    c.web.api_token = w.value("api_token", "");
+    c.web.audit_file = resolve(base_dir, w.value("audit_file", c.web.audit_file));
+    c.web.history_seconds = w.value("history_seconds", c.web.history_seconds);
+    c.web.log_lines = w.value("log_lines", c.web.log_lines);
+  }
   return c;
+}
+
+void save_edge_config(const EdgeConfig& c, const std::string& path) {
+  const std::string tmp = path + ".tmp";
+  {
+    std::ofstream out(tmp);
+    if (!out) throw std::runtime_error("cannot write " + tmp);
+    out << edge_config_to_json(c).dump(2) << "\n";
+  }
+  std::filesystem::rename(tmp, path);
 }
 
 EdgeConfig load_edge_config(const std::string& path) {
@@ -61,7 +92,9 @@ EdgeConfig load_edge_config(const std::string& path) {
   } catch (const std::exception& e) {
     throw std::runtime_error(path + ": " + e.what());
   }
-  return edge_config_from_json(j, std::filesystem::path(path).parent_path().string());
+  auto c = edge_config_from_json(j, std::filesystem::path(path).parent_path().string());
+  c.path = path;
+  return c;
 }
 
 json edge_config_to_json(const EdgeConfig& c) {
@@ -73,7 +106,11 @@ json edge_config_to_json(const EdgeConfig& c) {
                          {"subscribe_to", c.input.subscribe_to}, {"channels", c.input.channels}}},
               {"nmea", {{"udp_targets", c.nmea.udp_targets}, {"tcp_port", c.nmea.tcp_port}, {"bind_address", c.nmea.bind_address},
                         {"talker", c.nmea.talker}, {"rate_hz", c.nmea.rate_hz}, {"utc_offset_sec", c.nmea.utc_offset_sec}, {"sentences", c.nmea.sentences}}},
-              {"status", {{"file", c.status.file}, {"interval_sec", c.status.interval_sec}}}};
+              {"status", {{"file", c.status.file}, {"interval_sec", c.status.interval_sec}}},
+              {"web", {{"tactical", {{"bind", c.web.tactical.bind}, {"port", c.web.tactical.port}}},
+                       {"maintenance", {{"bind", c.web.maintenance.bind}, {"port", c.web.maintenance.port}}},
+                       {"www", c.web.www}, {"users_file", c.web.users_file}, {"api_token", c.web.api_token}, {"audit_file", c.web.audit_file},
+                       {"history_seconds", c.web.history_seconds}, {"log_lines", c.web.log_lines}}}};
 }
 
 }  // namespace edge

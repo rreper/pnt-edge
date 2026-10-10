@@ -35,6 +35,22 @@ struct StatusConfig {
   double interval_sec = 1.0;
 };
 
+/// One HTTP surface served by the daemon (see docs/WEB_UI.md).
+struct WebSurfaceConfig {
+  std::string bind = "0.0.0.0";
+  int port = 0;                 ///< 0 = not served
+};
+struct WebConfig {
+  WebSurfaceConfig tactical{"0.0.0.0", 8080};     ///< no login: the tactical display with its reset button
+  WebSurfaceConfig maintenance{"0.0.0.0", 8081};  ///< login (users_file) or bearer api_token (read-only) for a fleet server
+  std::string www;                                ///< directory with tactical/, maintenance/, common/ (empty: the installed one)
+  std::string users_file = "/etc/pnt-edge/users.json";
+  std::string api_token;                          ///< empty: no token access
+  std::string audit_file = "/var/log/pnt-edge/audit.log";
+  double history_seconds = 7200;                  ///< solution history kept in memory
+  int log_lines = 2000;                           ///< log lines kept in memory
+};
+
 struct EdgeConfig {
   std::string filter_config;              ///< path to the Cobra JSON config
   bool legacy_q_rotation = false;
@@ -43,7 +59,11 @@ struct EdgeConfig {
   NmeaConfig nmea;
   StatusConfig status;
   std::string geoid_file;                 ///< empty: PNTOS_GEOID_FILE or data/egm96_15min.bin
+  WebConfig web;
+  std::string path;                       ///< the file this config was loaded from (for saving)
 };
+/// Writes the config back to `path` (pretty JSON, comments dropped). Throws on failure.
+void save_edge_config(const EdgeConfig& c, const std::string& path);
 
 EdgeConfig load_edge_config(const std::string& path);
 EdgeConfig edge_config_from_json(const nlohmann::json& j, const std::string& base_dir = "");

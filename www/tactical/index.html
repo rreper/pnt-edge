@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>PNT tactical display</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="/static/app.css"></head>
+<body>
+<header><h1>PNT</h1><span id="health" class="badge">starting</span><span id="pace" class="badge hidden"></span><span class="spacer"></span>
+<span id="link" class="muted">connecting…</span><span id="clock" class="muted"></span></header>
+<main>
+  <div class="grid">
+    <div class="panel"><h2>Position</h2><div class="big" id="lat">—</div><div class="big" id="lon">—</div><div class="kv"><dt>Altitude</dt><dd id="alt">—</dd><dt>Fix quality</dt><dd id="fix">—</dd><dt>Solution age</dt><dd id="age">—</dd></div></div>
+    <div class="panel"><h2>Motion</h2><div class="big huge" id="heading">—<span class="unit">° true</span></div><div class="big" id="speed">—<span class="unit">kn</span></div><div class="kv"><dt>Velocity NED</dt><dd id="vel">—</dd></div></div>
+    <div class="panel"><h2>Integrity</h2><div class="big" id="hpl">—<span class="unit">m HPL</span></div><div class="kv"><dt>Alert limit</dt><dd id="hal">—</dd><dt>Excluded</dt><dd id="excluded">—</dd><dt>Alarm</dt><dd id="alarm">—</dd><dt>1σ horizontal</dt><dd id="sigh">—</dd></div></div>
+    <div class="panel"><h2>Sources</h2><div id="sources" class="kv"></div></div>
+  </div>
+  <div class="panel"><h2>Track (local NED)</h2><canvas id="track" class="track"></canvas></div>
+  <div class="panel row"><button id="reset" class="danger">Reset filter</button><span class="muted">Re-aligns the navigation filter from scratch (10 s static alignment). The last command: <span id="lastcmd">none</span></span></div>
+</main>
+<script type="module" src="/app/tactical.js"></script>
+</body></html>
