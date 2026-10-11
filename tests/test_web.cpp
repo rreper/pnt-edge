@@ -86,6 +86,7 @@ TEST(Web, SurfacesApiLoginTokenAndControl) {
   cfg.users_file = tmpdir() + "/users_web.json";
   cfg.api_token = "fleet-secret";
   cfg.audit_file = tmpdir() + "/audit.log";
+  std::filesystem::remove(cfg.audit_file);  // never trust a file left by an earlier run
   {
     auth::Users u;
     u.set_password("admin", "correct horse", 500);

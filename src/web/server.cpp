@@ -58,6 +58,7 @@ std::string url_decode(const std::string& s) {
 }  // namespace
 
 WebServer::WebServer(Hub& hub, const WebConfig& cfg, std::string www_dir) : hub_(hub), cfg_(cfg), www_(std::move(www_dir)) {
+  hub_.set_audit_file(cfg_.audit_file);  // the web config is the one place the audit path is configured
   std::string err;
   if (!users_.load(cfg_.users_file, &err)) hub_.log("WARN", "web", "users file: " + err);
 }
