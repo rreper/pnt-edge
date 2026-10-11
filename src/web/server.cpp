@@ -77,15 +77,7 @@ bool WebServer::serve_file(const std::string& rel, httplib::Response& res) const
 }
 
 void WebServer::audit(const std::string& who, const std::string& address, const std::string& action, const std::string& detail) {
-  hub_.event("CONTROL", who + "@" + address + " " + action + " " + detail);
-  if (cfg_.audit_file.empty()) return;
-  std::error_code ec;
-  std::filesystem::create_directories(std::filesystem::path(cfg_.audit_file).parent_path(), ec);
-  std::ofstream out(cfg_.audit_file, std::ios::app);
-  const auto now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-  char buf[32];
-  std::strftime(buf, sizeof buf, "%Y-%m-%dT%H:%M:%SZ", std::gmtime(&now));
-  out << buf << ' ' << who << ' ' << address << ' ' << action << ' ' << detail << '\n';
+  hub_.audit(who, address, action, detail);
 }
 
 WebServer::Identity WebServer::identify(const httplib::Request& req, Surface surface) {

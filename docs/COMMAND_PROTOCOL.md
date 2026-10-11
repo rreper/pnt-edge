@@ -34,7 +34,50 @@ with proprietary `$P` sentences, next to vendor ASCII dialects. `$PPNT` keeps th
 already has, stays within 82 characters, and leaves the full interface (ASPN-23 over LCM) for integrators who
 want more than NMEA carries.
 
+## Transport and configuration
+
+Commands are read on two paths, both on the NMEA bind address (`nmea.bind_address`, the tactical interface):
+
+- the NMEA TCP server (`nmea.tcp_port`): any connected client may write `$PPNT` lines on the same connection
+  it receives the stream on; replies go to that client only, interleaved with the stream;
+- a UDP command port (`nmea.command_udp_port`, default 10111, 0 = off): one or more sentences per datagram,
+  replies by datagram to the sender.
+
+Every sentence is acknowledged on the path it arrived on. Queries (`STATUS`, `VER`, `TIME`) answer from the
+daemon's live state; sets are queued to the main loop exactly like the web surfaces' control calls
+(docs/WEB_UI.md) and written to the audit log as `ppnt <ip:port> <action> <args>`. `OUT` takes effect
+immediately and is saved to the config file; `HEADING` and `LEVERARM` are written to the filter config and take
+effect on the next filter reset (the ACK says so); `RESET,S,filter` re-aligns, `RESET,S,app` exits with code 3
+for the service manager to restart.
+
+Reply formats: `STATUS,R` carries `health`, the solution age in seconds, the GGA fix quality (0/1/6 as above),
+an empty satellite field (not known to the filter), horizontal and vertical 1-sigma in metres, heading sigma in
+degrees, uptime in seconds. `TIME,R` carries the last solution's UTC as ISO 8601, the source (`gnss` while
+solutions flow, else `free`) and the wall-clock minus solution-time offset in milliseconds. `VER,R` carries the
+pnt-edge version, the Cobra library version and the first eight hex digits of the SHA-256 of the active filter
+config file.
+
+Example session over TCP (`nc <device> 10110`):
+
+```
+$PPNT,STATUS,Q*0F
+$PPNT,STATUS,R,ok,0.2,1,,1.41,2.00,0.50,3617*5B
+$PPNT,ACK,STATUS,OK*6F
+$PPNT,OUT,S,5,GGA+HDT+GST*2E
+$PPNT,ACK,OUT,OK*35
+$PPNT,HEADING,S,123.4,1*1C
+$PPNT,ACK,HEADING,OK,effective on the next filter reset*2A
+$PPNT,RESET,S,filter*1F
+$PPNT,ACK,RESET,OK*2E
+```
+
+A malformed line is answered with `$PPNT,ACK,<command or ?>,ERR,<reason>` (`bad checksum`, `too long`,
+`missing checksum`, ...). Sentences of kind `R` and `ACK` sentences are never answered, so two devices wired
+back to back cannot loop.
+
 ## Phase A status
 
-The output half (GGA, RMC, VTG, HDT, GST, ZDA, PASHR) is implemented. The command parser, acknowledgement and
-the STATUS / VER / OUT / RESET handlers are Phase A.3; LEVERARM and HEADING need the config write-back of Phase B.
+Delivered: the output half (GGA, RMC, VTG, HDT, GST, ZDA, PASHR, INTEG) and the command half (parser,
+acknowledgements, STATUS / VER / TIME / OUT / LEVERARM / HEADING / RESET) on both transports, sharing the
+command layer and audit log with the web surfaces. Open: serial drivers (A.2) and a `$PPNT,SRC` family for
+enabling and disabling individual aiding sources from the tactical side.

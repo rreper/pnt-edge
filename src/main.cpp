@@ -9,6 +9,7 @@
 #include "integrity.hpp"
 #include "nmea.hpp"
 #include "outputs.hpp"
+#include "ppnt.hpp"
 #include "status.hpp"
 #include "web/hub.hpp"
 #include "web/server.hpp"
@@ -18,6 +19,8 @@
 
 #include <pntos/cobra/app/AppBuilder.hpp>
 #include <pntos/cobra/app/Filter.hpp>
+#include <pntos/cobra/capi/cobra.h>
+#include "web/auth.hpp"
 #include <pntos/cobra/utils/geoid.hpp>
 #include <pntos/cobra/utils/logging.hpp>
 
@@ -25,6 +28,7 @@
 #include <csignal>
 #include <filesystem>
 #include <fstream>
+#include <sstream>
 #include <iostream>
 #include <set>
 #include <thread>
@@ -80,7 +84,21 @@ std::unique_ptr<Runtime> start_runtime(const edge::EdgeConfig& cfg, edge::Hub& h
       default_channels.insert(t->channels_to_process->begin(), t->channels_to_process->end());
   hub.set_config(edge::edge_config_to_json(cfg), pntos::cobra::jsoncfg::app_config_to_json(app));
   rt->filter = std::make_unique<pntos::cobra::Filter>(app, options);
-  rt->out = std::make_unique<edge::NmeaOutput>(cfg.nmea.udp_targets, cfg.nmea.bind_address, cfg.nmea.tcp_port);
+  rt->out = std::make_unique<edge::NmeaOutput>(cfg.nmea.udp_targets, cfg.nmea.bind_address, cfg.nmea.tcp_port, cfg.nmea.command_udp_port);
+  {
+    edge::ppnt::Context ctx;
+    ctx.hub = &hub;
+    ctx.version = PNT_EDGE_VERSION;
+    ctx.cobra_version = cobra_version();
+    const std::string filter_config = cfg.filter_config;
+    ctx.config_id = [filter_config]() {
+      std::ifstream in(filter_config, std::ios::binary);
+      std::stringstream ss;
+      ss << in.rdbuf();
+      return edge::auth::hex(edge::auth::sha256(ss.str())).substr(0, 8);
+    };
+    rt->out->set_command_handler([ctx](const std::string& line, const std::string& from) { return edge::ppnt::handle(line, from, ctx); });
+  }
   const std::int64_t utc_offset_ns = static_cast<std::int64_t>(cfg.nmea.utc_offset_sec * 1e9);
   const std::int64_t min_gap_ns = cfg.nmea.rate_hz > 0 ? static_cast<std::int64_t>(1e9 / cfg.nmea.rate_hz) : 0;
   Runtime* r = rt.get();
@@ -182,6 +200,7 @@ int main(int argc, char** argv) {
 
     edge::Hub hub(cfg.web.history_seconds, cfg.web.log_lines);
     hub.set_version(PNT_EDGE_VERSION);
+    hub.set_audit_file(cfg.web.audit_file);
     pntos::cobra::utils::set_log_sink([&hub](pntos::api::LoggingLevel l, const std::string& id, const std::string& m) {
       hub.log(pntos::api::to_string(l), id, m);
     });

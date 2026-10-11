@@ -22,3 +22,10 @@ history and log through Cobra v0.2.6's log sink. `docs/WEB_UI.md`. Still open fr
 (a proxy for now), persistent history across restarts, the integrity timeline fed from the plugin's own events
 rather than status polling.
 
+## Phase A.3, delivered (2026-10-11): `$PPNT` commands
+
+Parser with checksum and length checks, STATUS / VER / TIME replies from the hub, OUT / LEVERARM / HEADING /
+RESET queued through the same command layer as the web control routes, acknowledgement of every sentence,
+commands read on the NMEA TCP connections and on a UDP command port, audit log shared with the web surfaces.
+Cobra v0.2.7 so that `VER` reports the real library version.
+

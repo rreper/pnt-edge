@@ -10,7 +10,7 @@
   },
   "nmea": {
     "udp_targets": ["192.168.10.255:10110"],
-    "tcp_port": 10110,
+    "tcp_port": 10110, "command_udp_port": 10111,
     "bind_address": "0.0.0.0",
     "talker": "GN",
     "rate_hz": 1.0,

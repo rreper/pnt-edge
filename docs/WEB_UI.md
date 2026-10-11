@@ -55,7 +55,8 @@ All responses are JSON. Read routes (both surfaces; the maintenance surface requ
 | `GET /api/v1/stream` | Server-Sent Events: `update` with `{status, solution}` on every change (≤ 5 Hz), heartbeat every 5 s |
 
 Control routes (POST with a JSON body; queued to the main loop; every call is written to the audit log and the
-event timeline with the caller and address):
+event timeline with the caller and address; the `$PPNT` sentences of `docs/COMMAND_PROTOCOL.md` go through the
+same queue):
 
 | route | body | surface | effect |
 |---|---|---|---|

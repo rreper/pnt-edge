@@ -38,6 +38,7 @@ EdgeConfig edge_config_from_json(const json& j, const std::string& base_dir) {
     const json& n = j.at("nmea");
     c.nmea.udp_targets = n.value("udp_targets", std::vector<std::string>{});
     c.nmea.tcp_port = n.value("tcp_port", 0);
+    c.nmea.command_udp_port = n.value("command_udp_port", 10111);
     c.nmea.bind_address = n.value("bind_address", "0.0.0.0");
     c.nmea.talker = n.value("talker", "GN");
     c.nmea.rate_hz = n.value("rate_hz", 1.0);
@@ -104,7 +105,7 @@ json edge_config_to_json(const EdgeConfig& c) {
               {"geoid_file", c.geoid_file},
               {"input", {{"type", c.input.type}, {"path", c.input.path}, {"speed", c.input.speed}, {"loop", c.input.loop}, {"url", c.input.url},
                          {"subscribe_to", c.input.subscribe_to}, {"channels", c.input.channels}}},
-              {"nmea", {{"udp_targets", c.nmea.udp_targets}, {"tcp_port", c.nmea.tcp_port}, {"bind_address", c.nmea.bind_address},
+              {"nmea", {{"udp_targets", c.nmea.udp_targets}, {"tcp_port", c.nmea.tcp_port}, {"command_udp_port", c.nmea.command_udp_port}, {"bind_address", c.nmea.bind_address},
                         {"talker", c.nmea.talker}, {"rate_hz", c.nmea.rate_hz}, {"utc_offset_sec", c.nmea.utc_offset_sec}, {"sentences", c.nmea.sentences}}},
               {"status", {{"file", c.status.file}, {"interval_sec", c.status.interval_sec}}},
               {"web", {{"tactical", {{"bind", c.web.tactical.bind}, {"port", c.web.tactical.port}}},

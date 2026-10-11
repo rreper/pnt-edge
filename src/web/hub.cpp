@@ -4,6 +4,9 @@
 
 #include <algorithm>
 #include <cmath>
+#include <ctime>
+#include <filesystem>
+#include <fstream>
 
 namespace edge {
 
@@ -155,6 +158,23 @@ std::uint64_t Hub::wait_for_change(std::uint64_t seen, std::chrono::milliseconds
   std::unique_lock lk(m_);
   cv_.wait_for(lk, timeout, [&] { return change_ != seen; });
   return change_;
+}
+
+void Hub::audit(const std::string& who, const std::string& address, const std::string& action, const std::string& detail) {
+  event("CONTROL", who + "@" + address + " " + action + " " + detail);
+  std::string path;
+  {
+    std::lock_guard lk(m_);
+    path = audit_file_;
+  }
+  if (path.empty()) return;
+  std::error_code ec;
+  std::filesystem::create_directories(std::filesystem::path(path).parent_path(), ec);
+  std::ofstream out(path, std::ios::app);
+  const auto now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
+  char buf[32];
+  std::strftime(buf, sizeof buf, "%Y-%m-%dT%H:%M:%SZ", std::gmtime(&now));
+  out << buf << ' ' << who << ' ' << address << ' ' << action << ' ' << detail << '\n';
 }
 
 void Hub::enqueue(Command c) {

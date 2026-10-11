@@ -47,6 +47,12 @@ docs/       DESIGN.md, ROADMAP.md, COMMAND_PROTOCOL.md
 tests/      GoogleTest (NMEA formatting, config, end-to-end replay)
 ```
 
+## `$PPNT` commands
+
+Tactical clients drive the device with proprietary NMEA sentences on the NMEA TCP connection or a UDP command
+port: status, version and time queries, NMEA output settings, initial heading, lever arms, filter reset and
+application restart, each acknowledged (`docs/COMMAND_PROTOCOL.md`).
+
 ## Web surfaces
 
 The daemon serves a tactical display (no login, reset button) and a maintenance UI (login, full status and

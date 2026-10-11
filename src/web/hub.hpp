@@ -58,6 +58,9 @@ class Hub {
   void event(const std::string& kind, const std::string& detail);
   void set_config(const nlohmann::json& edge_config, const nlohmann::json& filter_config);
   void set_version(const std::string& v) { std::lock_guard lk(m_); version_ = v; }
+  void set_audit_file(const std::string& path) { std::lock_guard lk(m_); audit_file_ = path; }
+  /// Appends one line to the audit file (if configured) and a CONTROL entry to the event timeline.
+  void audit(const std::string& who, const std::string& address, const std::string& action, const std::string& detail);
 
   // --- consumers (web)
   nlohmann::json status() const;
@@ -92,6 +95,7 @@ class Hub {
   std::deque<Command> commands_;
   nlohmann::json edge_config_ = nlohmann::json::object(), filter_config_ = nlohmann::json::object();
   std::string version_;
+  std::string audit_file_;
 };
 
 }  // namespace edge
