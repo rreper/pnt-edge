@@ -83,7 +83,24 @@ from 600 s of the full recording; `cell_step.json` steps the alternate by 40 m) 
 7. Fleet access: `curl -H 'Authorization: Bearer <token>' http://<host>:8081/api/v1/solution` once `web.api_token`
    is set in the config; control calls with the token answer 403.
 
-## 5. Useful checks
+## 5. Serial devices without hardware
+
+The same demo through the serial drivers (VN-100 binary frames and u-blox NAV-PVT on two pseudo-terminals):
+
+```
+./build/pnt-edge-serial-sim subprojects/pntos-cpp/testdata/example_60s.log --loop --imu-link /tmp/pnt-edge/imu --gnss-link /tmp/pnt-edge/gnss
+./build/pnt-edge configs/pnt-edge-serial-sim.json
+```
+
+Maintenance UI → Inputs shows the two devices streaming (≈100 Hz and 1 Hz for this log), their clock offsets and
+error counters; unplugging is simulated by stopping the simulator (state `lost`, then `closed` until it is back).
+Real devices: `configs/pnt-edge-serial.json` and docs/SERIAL.md.
+
+Note on looping: a looped log restarts the filter at the end of each pass (event `REPLAY`, about ten seconds of
+`aligning`), because the filter cannot follow time jumping back to the start of the recording. For a continuous
+long demo use the full recording with `--input-log`.
+
+## 6. Useful checks
 
 - `curl -s http://<host>:8080/api/v1/status | jq .health`
 - `curl -N http://<host>:8080/api/v1/stream` shows the live updates (Server-Sent Events).

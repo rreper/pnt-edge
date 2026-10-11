@@ -6,11 +6,14 @@
 #include <pntos/cobra/app/Filter.hpp>
 #include <pntos/cobra/transport/LcmUdpTransportPlugin.hpp>
 
+#include <nlohmann/json.hpp>
+
 #include <atomic>
 #include <functional>
 #include <map>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <set>
 #include <thread>
 
@@ -28,6 +31,10 @@ class Input {
   virtual void start() = 0;
   virtual void stop() = 0;
   virtual bool finished() const = 0;  ///< a log reached its end
+  /// Per-device health for inputs made of devices (serial): an array of objects, empty otherwise.
+  virtual nlohmann::json devices() const { return nlohmann::json::array(); }
+  /// What to add to a solution time on this input's timeline to get UTC, when the input knows (serial GNSS).
+  virtual std::optional<std::int64_t> utc_correction_ns() const { return std::nullopt; }
   InputCounters counters() const {
     std::lock_guard lk(mutex_);
     return counters_;

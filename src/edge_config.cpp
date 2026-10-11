@@ -32,7 +32,32 @@ EdgeConfig edge_config_from_json(const json& j, const std::string& base_dir) {
     c.input.url = i.value("url", c.input.url);
     c.input.subscribe_to = i.value("subscribe_to", c.input.subscribe_to);
     c.input.channels = i.value("channels", std::vector<std::string>{});
-    if (c.input.type != "lcm_log" && c.input.type != "lcm_udp") throw std::runtime_error("pnt-edge config: input.type must be lcm_log or lcm_udp");
+    c.input.record_dir = resolve(base_dir, i.value("record_dir", ""));
+    c.input.reorder_ms = i.value("reorder_ms", 50.0);
+    for (const json& d : i.value("devices", json::array())) {
+      SerialDeviceConfig s;
+      s.driver = d.value("driver", "");
+      s.name = d.value("name", s.driver);
+      s.port = d.value("port", "");
+      s.baud = d.value("baud", 115200);
+      s.channel = d.value("channel", "");
+      s.velocity_channel = d.value("velocity_channel", "");
+      s.time_source = d.value("time_source", "host");
+      s.latency_ms = d.value("latency_ms", 0.0);
+      s.init = d.value("init", std::vector<std::string>{});
+      s.configure = d.value("configure", false);
+      s.rate_hz = d.value("rate_hz", 5.0);
+      s.ubx_port = d.value("ubx_port", "");
+      s.uere_m = d.value("uere_m", 2.5);
+      s.sigma_floor_m = d.value("sigma_floor_m", 0.3);
+      if (s.driver != "vn100" && s.driver != "ubx" && s.driver != "nmea") throw std::runtime_error("pnt-edge config: device driver must be vn100, ubx or nmea");
+      if (s.port.empty() || s.channel.empty()) throw std::runtime_error("pnt-edge config: every serial device needs a port and a channel");
+      if (s.time_source != "host" && s.time_source != "device") throw std::runtime_error("pnt-edge config: time_source must be host or device");
+      c.input.devices.push_back(std::move(s));
+    }
+    if (c.input.type != "lcm_log" && c.input.type != "lcm_udp" && c.input.type != "serial")
+      throw std::runtime_error("pnt-edge config: input.type must be lcm_log, lcm_udp or serial");
+    if (c.input.type == "serial" && c.input.devices.empty()) throw std::runtime_error("pnt-edge config: a serial input needs at least one device");
   }
   if (j.contains("nmea")) {
     const json& n = j.at("nmea");
@@ -43,6 +68,7 @@ EdgeConfig edge_config_from_json(const json& j, const std::string& base_dir) {
     c.nmea.talker = n.value("talker", "GN");
     c.nmea.rate_hz = n.value("rate_hz", 1.0);
     c.nmea.utc_offset_sec = n.value("utc_offset_sec", 0.0);
+    c.nmea.utc_from_receiver = n.value("utc_from_receiver", true);
     c.nmea.sentences = n.value("sentences", c.nmea.sentences);
   }
   if (j.contains("status")) {
@@ -99,14 +125,21 @@ EdgeConfig load_edge_config(const std::string& path) {
 }
 
 json edge_config_to_json(const EdgeConfig& c) {
+  json devices = json::array();
+  for (const auto& d : c.input.devices)
+    devices.push_back({{"name", d.name}, {"driver", d.driver}, {"port", d.port}, {"baud", d.baud}, {"channel", d.channel}, {"velocity_channel", d.velocity_channel},
+                       {"time_source", d.time_source}, {"latency_ms", d.latency_ms}, {"init", d.init}, {"configure", d.configure}, {"rate_hz", d.rate_hz},
+                       {"ubx_port", d.ubx_port}, {"uere_m", d.uere_m}, {"sigma_floor_m", d.sigma_floor_m}});
   return json{{"filter_config", c.filter_config},
               {"legacy_q_rotation", c.legacy_q_rotation},
               {"logging_level", c.logging_level},
               {"geoid_file", c.geoid_file},
               {"input", {{"type", c.input.type}, {"path", c.input.path}, {"speed", c.input.speed}, {"loop", c.input.loop}, {"url", c.input.url},
-                         {"subscribe_to", c.input.subscribe_to}, {"channels", c.input.channels}}},
+                         {"subscribe_to", c.input.subscribe_to}, {"channels", c.input.channels}, {"devices", devices}, {"record_dir", c.input.record_dir},
+                         {"reorder_ms", c.input.reorder_ms}}},
               {"nmea", {{"udp_targets", c.nmea.udp_targets}, {"tcp_port", c.nmea.tcp_port}, {"command_udp_port", c.nmea.command_udp_port}, {"bind_address", c.nmea.bind_address},
-                        {"talker", c.nmea.talker}, {"rate_hz", c.nmea.rate_hz}, {"utc_offset_sec", c.nmea.utc_offset_sec}, {"sentences", c.nmea.sentences}}},
+                        {"talker", c.nmea.talker}, {"rate_hz", c.nmea.rate_hz}, {"utc_offset_sec", c.nmea.utc_offset_sec}, {"utc_from_receiver", c.nmea.utc_from_receiver},
+                        {"sentences", c.nmea.sentences}}},
               {"status", {{"file", c.status.file}, {"interval_sec", c.status.interval_sec}}},
               {"web", {{"tactical", {{"bind", c.web.tactical.bind}, {"port", c.web.tactical.port}}},
                        {"maintenance", {{"bind", c.web.maintenance.bind}, {"port", c.web.maintenance.port}}},

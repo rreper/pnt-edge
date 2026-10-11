@@ -69,6 +69,7 @@ struct Runtime {
   edge::StatusSnapshot status;
   std::chrono::steady_clock::time_point last_solution_wall;
   std::int64_t last_emitted_tov = 0;
+  std::atomic<std::int64_t> utc_offset_ns{0};  ///< added to solution times for the UTC in NMEA (config, or the receiver's)
 };
 
 std::unique_ptr<Runtime> start_runtime(const edge::EdgeConfig& cfg, edge::Hub& hub, const edge::NmeaOptions& nopt) {
@@ -99,12 +100,12 @@ std::unique_ptr<Runtime> start_runtime(const edge::EdgeConfig& cfg, edge::Hub& h
     };
     rt->out->set_command_handler([ctx](const std::string& line, const std::string& from) { return edge::ppnt::handle(line, from, ctx); });
   }
-  const std::int64_t utc_offset_ns = static_cast<std::int64_t>(cfg.nmea.utc_offset_sec * 1e9);
+  rt->utc_offset_ns = static_cast<std::int64_t>(cfg.nmea.utc_offset_sec * 1e9);
   const std::int64_t min_gap_ns = cfg.nmea.rate_hz > 0 ? static_cast<std::int64_t>(1e9 / cfg.nmea.rate_hz) : 0;
   Runtime* r = rt.get();
-  rt->filter->set_solution_callback([r, &hub, nopt, utc_offset_ns, min_gap_ns](const pntos::api::Message& m) {
+  rt->filter->set_solution_callback([r, &hub, nopt, min_gap_ns](const pntos::api::Message& m) {
     edge::Pva p;
-    if (!edge::pva_from_message(m, p, utc_offset_ns)) return;
+    if (!edge::pva_from_message(m, p, r->utc_offset_ns.load())) return;
     std::lock_guard lk(r->mutex);
     ++r->status.solutions;
     r->status.last_solution = p;
@@ -231,7 +232,9 @@ int main(int argc, char** argv) {
     web.start();
 
     auto rt = start_runtime(cfg, hub, nopt);
-    say("INFO", "running (" + cfg.input.type + (cfg.input.type == "lcm_log" ? " " + cfg.input.path : " " + cfg.input.url) + "), NMEA to " +
+    std::string input_desc = cfg.input.type == "lcm_log" ? " " + cfg.input.path : cfg.input.type == "lcm_udp" ? " " + cfg.input.url : "";
+    for (const auto& d : cfg.input.devices) input_desc += " " + d.name + "=" + d.driver + "@" + d.port;
+    say("INFO", "running (" + cfg.input.type + input_desc + "), NMEA to " +
                     std::to_string(cfg.nmea.udp_targets.size()) + " UDP target(s)" + (cfg.nmea.tcp_port ? " and TCP port " + std::to_string(cfg.nmea.tcp_port) : "") +
                     ", web " + www_dir(cfg) + " on tactical :" + std::to_string(web.tactical_port()) + " / maintenance :" + std::to_string(web.maintenance_port()));
 
@@ -240,7 +243,17 @@ int main(int argc, char** argv) {
     std::string last_pace, last_excluded, last_health;
     while (!g_stop) {
       std::this_thread::sleep_for(std::chrono::milliseconds(100));
-      if (once && rt->input->finished()) break;
+      if (rt->input->finished()) {
+        if (once) break;
+        if (cfg.input.type == "lcm_log" && cfg.input.loop) {
+          say("INFO", "log ended: restarting the filter for the next pass");
+          hub.event("REPLAY", "log ended, filter restarted for the next pass");
+          stop_runtime(*rt);
+          rt.reset();
+          rt = start_runtime(cfg, hub, nopt);
+          continue;
+        }
+      }
 
       // control commands from the web surfaces
       while (auto cmd = hub.next_command()) {
@@ -332,6 +345,13 @@ int main(int argc, char** argv) {
       snap.wall = std::chrono::system_clock::now();
       snap.uptime_sec = static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - start).count());
       snap.input = rt->input->counters();
+      snap.devices = rt->input->devices();
+      if (cfg.nmea.utc_from_receiver) {
+        if (auto corr = rt->input->utc_correction_ns()) {
+          rt->utc_offset_ns = *corr;
+          snap.utc_correction_s = static_cast<double>(*corr) * 1e-9;
+        }
+      }
       snap.filter_error = rt->filter->error_logged();
       snap.gating = edge::gating_from_registry(*rt->filter);
       snap.integrity = edge::integrity_from_registry(*rt->filter);

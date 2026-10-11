@@ -22,10 +22,11 @@ sensors ──► inputs ──► cobra::Filter (push API) ──► solutions 
                 └── device health (rates, ages, parse errors)
 ```
 
-- **Inputs** (`src/inputs.*`): one class per source, each ending in `Filter::push`. Phase A: LCM event log
-  (replay, paced or looped) and LCM UDP multicast (Cobra's transport with a forwarding mediator). Phase A.2:
-  serial GNSS (NMEA and u-blox UBX), serial / SPI IMU drivers. Every input keeps counters (per channel, decode
-  failures, last time of validity) that feed the health model.
+- **Inputs** (`src/inputs.*`, `src/serial/`): one class per source, each ending in `Filter::push`. LCM event log
+  (replay, paced; looped logs restart the filter per pass), LCM UDP multicast (Cobra's transport with a forwarding
+  mediator), and serial devices (VN-100 binary/ASCII, u-blox UBX, NMEA receivers) with one reader thread per
+  device, device-clock-to-host-clock mapping, a reorder buffer and per-device health (`docs/SERIAL.md`). Every
+  input keeps counters (per channel, decode failures, last time of validity) that feed the health model.
 - **Filter**: `cobra::Filter` built from a Cobra JSON config. All sensor modelling (lever arms, IMU presets,
   processors, gating) lives in that file; pnt-edge never duplicates it.
 - **Outputs** (`src/outputs.*`, `src/nmea.*`): NMEA 0183 sentences from each published solution, rate-limited,

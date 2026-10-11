@@ -3,7 +3,7 @@
 | Phase | Scope | Done when |
 |---|---|---|
 | A.1 (done) | Repository, daemon on the push API, LCM log and LCM UDP inputs, NMEA 0183 output (UDP/TCP), JSON status snapshot, systemd unit, CI | tests green; `pnt-edge configs/pnt-edge-replay.json --once` emits NMEA for the Cobra example log |
-| A.2 | Serial GNSS (NMEA, UBX) and IMU drivers, ASPN-23 over LCM output, UTC offset from the receiver, recording to disk | a receiver and an IMU on serial ports drive the filter end to end on the bench |
+| A.2 (drivers done) | Serial GNSS (NMEA, UBX) and IMU drivers, UTC offset from the receiver, recording to disk — delivered 2026-10-11; ASPN-23 over LCM output still open | a receiver and an IMU on serial ports drive the filter end to end on the bench (simulator passes; hardware bench run pending) |
 | A.3 | `$PPNT` command parser and handlers (STATUS, VER, OUT, RESET, TIME), acknowledgements, audit log | a client can query and reconfigure output over the tactical port |
 | B.1 | Embedded HTTPS + REST + WebSocket, authentication, roles, first-login flow | login works, status pages live |
 | B.2 | Device, filter and system health pages; logs; config editor with validation; LEVERARM / HEADING commands | a maintainer changes a lever arm from the browser and the filter restarts with it |
@@ -21,6 +21,16 @@ application restart, NMEA settings, heading, lever arms, config save) with an au
 history and log through Cobra v0.2.6's log sink. `docs/WEB_UI.md`. Still open from the original Phase B: TLS
 (a proxy for now), persistent history across restarts, the integrity timeline fed from the plugin's own events
 rather than status polling.
+
+## Phase A.2, drivers delivered (2026-10-11): serial devices
+
+VN-100 (binary output and ASCII), u-blox UBX (NAV-PVT, NAV-TIMELS, CFG-VALSET on open) and generic NMEA drivers as
+a `serial` input with one thread per device, host-clock time mapping with latency removal, a reorder buffer, UTC from
+the receiver for the NMEA output, per-device health in the status and the maintenance UI, raw recording,
+reconnection on unplug. `pnt-edge-serial-sim` plays an LCM log as the two devices on pseudo-terminals, which the
+test suite and `configs/pnt-edge-serial-sim.json` use. `docs/SERIAL.md`. Open: the bench run with real devices
+(VN-100 register writes and the u-blox port keys are per the vendor protocols but not yet exercised on hardware),
+ASPN-23 over LCM output, serial NMEA output.
 
 ## Phase A.3, delivered (2026-10-11): `$PPNT` commands
 

@@ -1,5 +1,7 @@
 #include "inputs.hpp"
 
+#include "serial/input.hpp"
+
 #include <pntos/cobra/transport/LcmConversions.hpp>
 #include <pntos/cobra/transport/LcmLog.hpp>
 #include <pntos/cobra/utils/aspn.hpp>
@@ -28,7 +30,9 @@ void LogInput::stop() {
 }
 
 void LogInput::run() {
-  do {
+  // One pass only: when `loop` is set, the daemon restarts the runtime (filter and input) at the end of the
+  // log, since the filter cannot follow time jumping back to the start of the recording.
+  {
     pntos::cobra::lcm::LcmLogReader reader(cfg_.path);
     const auto wall0 = std::chrono::steady_clock::now();
     std::optional<std::int64_t> t0;
@@ -54,7 +58,7 @@ void LogInput::run() {
       auto tov = pntos::cobra::utils::time_of_validity(*msg);
       count(ev->channel, tov ? tov->elapsed_nsec : 0);
     }
-  } while (cfg_.loop && !stop_);
+  }
   finished_ = true;
 }
 
@@ -112,6 +116,7 @@ void LcmUdpInput::stop() {
 
 std::unique_ptr<Input> make_input(pntos::cobra::Filter& filter, const InputConfig& config, std::set<std::string> default_channels) {
   if (config.type == "lcm_udp") return std::make_unique<LcmUdpInput>(filter, config);
+  if (config.type == "serial") return std::make_unique<SerialInput>(filter, config);
   std::set<std::string> channels(config.channels.begin(), config.channels.end());
   if (channels.empty()) channels = std::move(default_channels);
   return std::make_unique<LogInput>(filter, config, std::move(channels));

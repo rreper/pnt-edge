@@ -31,15 +31,18 @@ edge_args = ['-DPNT_EDGE_VERSION="' + meson.project_version() + '"',
 edge_lib = static_library('pnt-edge-core',
   'src/nmea.cpp', 'src/inputs.cpp', 'src/outputs.cpp', 'src/status.cpp', 'src/edge_config.cpp', 'src/integrity.cpp',
   'src/web/hub.cpp', 'src/web/auth.cpp', 'src/web/server.cpp', 'src/ppnt.cpp',
+  'src/serial/port.cpp', 'src/serial/clock.cpp', 'src/serial/vn100.cpp', 'src/serial/nmea_gnss.cpp', 'src/serial/ubx.cpp', 'src/serial/input.cpp',
   include_directories: edge_inc, dependencies: [cobra_dep, thread_dep], cpp_args: edge_args)
 edge_dep = declare_dependency(link_with: edge_lib, include_directories: edge_inc, dependencies: [cobra_dep, thread_dep])
 
 executable('pnt-edge', 'src/main.cpp', dependencies: [edge_dep] + extra_deps, cpp_args: extra_args + edge_args, install: true)
+# Plays an LCM log as serial devices (VN-100 binary/ASCII on one pty, UBX or NMEA on another) for bench work without hardware.
+executable('pnt-edge-serial-sim', 'tools/serial_sim.cpp', dependencies: [edge_dep], cpp_args: edge_args, install: true)
 install_subdir('www', install_dir: get_option('datadir') / 'pnt-edge')
 
 if get_option('tests')
   gtest_proj = subproject('gtest')
-  test_exe = executable('test_pnt_edge', 'tests/test_nmea.cpp', 'tests/test_edge.cpp', 'tests/test_web.cpp', 'tests/test_ppnt.cpp',
+  test_exe = executable('test_pnt_edge', 'tests/test_nmea.cpp', 'tests/test_edge.cpp', 'tests/test_web.cpp', 'tests/test_ppnt.cpp', 'tests/test_serial.cpp',
     dependencies: [edge_dep, gtest_proj.get_variable('gtest_main_dep')])
   test('pnt-edge', test_exe, protocol: 'gtest', timeout: 300,
     env: ['PNT_EDGE_SRCDIR=' + meson.project_source_root()])

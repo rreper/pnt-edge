@@ -1,5 +1,7 @@
 #include "status.hpp"
 
+#include <algorithm>
+
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
@@ -14,6 +16,8 @@ json status_to_json(const StatusSnapshot& s) {
   j["uptime_sec"] = s.uptime_sec;
   j["input"] = {{"pushed", s.input.pushed}, {"decode_failures", s.input.decode_failures}, {"last_tov_s", s.input.last_tov_ns * 1e-9},
                 {"per_channel", s.input.per_channel}};
+  if (!s.devices.empty()) j["input"]["devices"] = s.devices;
+  if (s.utc_correction_s) j["clock"] = {{"utc_correction_s", *s.utc_correction_s}};
   j["solutions"] = s.solutions;
   j["nmea_sentences"] = s.nmea_sentences;
   j["last_solution_age_sec"] = s.last_solution_age_sec;
@@ -34,6 +38,8 @@ json status_to_json(const StatusSnapshot& s) {
   else if (s.last_solution_age_sec >= 0 && s.last_solution_age_sec < 5) health = "ok";
   else if (s.input.pushed > 0 && s.last_solution_age_sec < 0) health = "aligning";
   else if (s.last_solution_age_sec >= 5) health = "stale";
+  // a solution with an absurd uncertainty is not "ok" whatever its age (a diverged filter keeps publishing)
+  if (health == "ok" && s.last_solution && std::max(s.last_solution->sigma_n, s.last_solution->sigma_e) > 100.0) health = "degraded";
   if (s.integrity.present && health == "ok") {
     if (s.integrity.pace == "EMERGENCY") health = "emergency";
     else if (s.integrity.pace == "CONTINGENCY") health = "contingency";

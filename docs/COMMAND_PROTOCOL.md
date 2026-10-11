@@ -10,7 +10,7 @@ characters per sentence. Fields never contain commas; empty fields mean "unchang
 | Sentence | Direction | Meaning |
 |---|---|---|
 | `$PPNT,STATUS,Q*hh` | in | query health |
-| `$PPNT,STATUS,R,<health>,<age_s>,<fix>,<sats>,<sigma_h_m>,<sigma_v_m>,<sigma_hdg_deg>,<uptime_s>*hh` | out | health reply; `health` is one of `ok`, `aligning`, `stale`, `error`, or with an integrity plugin `alternate`, `contingency`, `emergency` |
+| `$PPNT,STATUS,R,<health>,<age_s>,<fix>,<sats>,<sigma_h_m>,<sigma_v_m>,<sigma_hdg_deg>,<uptime_s>*hh` | out | health reply; `health` is one of `ok`, `aligning`, `stale`, `degraded` (horizontal sigma above 100 m), `error`, or with an integrity plugin `alternate`, `contingency`, `emergency` |
 | `$PPNT,INTEG,<pace>,<hpl_m>,<hal_m>,<alarm>,<fault_detection>,<excluded>*hh` | out | integrity status, once per NMEA epoch when an integrity plugin is linked: PACE state (`PRIMARY`, `ALTERNATE`, `CONTINGENCY`, `EMERGENCY`), horizontal protection level and alert limit in metres, `alarm` 1 while a source disagreement is being evaluated, `fault_detection` 1 while two or more trusted sources allow one, excluded source names joined by `+` |
 | `$PPNT,VER,Q*hh` / `$PPNT,VER,R,<pnt-edge>,<cobra>,<config_id>*hh` | in / out | versions and the SHA-256 prefix of the active config |
 | `$PPNT,OUT,S,<rate_hz>,<sentence list>*hh` | in | set NMEA rate and sentence selection, e.g. `$PPNT,OUT,S,5,GGA+HDT+GST` |

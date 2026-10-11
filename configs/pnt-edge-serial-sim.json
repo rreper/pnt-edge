@@ -1,0 +1,21 @@
+{
+  // Serial input exercised without hardware: pnt-edge-serial-sim plays an LCM log as a VN-100 (binary) and a
+  // u-blox receiver (UBX NAV-PVT) on two pseudo-terminals and links them here (docs/SERIAL.md).
+  //   ./build/pnt-edge-serial-sim subprojects/pntos-cpp/testdata/example_60s.log --loop --imu-link /tmp/pnt-edge/imu --gnss-link /tmp/pnt-edge/gnss
+  //   ./build/pnt-edge configs/pnt-edge-serial-sim.json
+  "filter_config": "../subprojects/pntos-cpp/configs/pos_ins.json",
+  "logging_level": "INFO",
+  "input": {
+    "type": "serial",
+    "reorder_ms": 50,
+    "devices": [
+      {"name": "imu", "driver": "vn100", "port": "/tmp/pnt-edge/imu", "baud": 921600, "channel": "/sensor/vn-100/imu", "time_source": "host"},
+      {"name": "gnss", "driver": "ubx", "port": "/tmp/pnt-edge/gnss", "baud": 115200, "channel": "/sensor/ublox-ZED-F9T/position", "time_source": "host"}
+    ]
+  },
+  "nmea": {"udp_targets": ["127.0.0.1:10110"], "tcp_port": 10110, "command_udp_port": 10111, "bind_address": "0.0.0.0", "rate_hz": 1,
+           "utc_offset_sec": 0, "utc_from_receiver": true, "sentences": ["GGA", "RMC", "VTG", "HDT", "GST", "ZDA", "PASHR"]},
+  "status": {"file": "/tmp/pnt-edge/status-serial.json", "interval_sec": 1},
+  "web": {"tactical": {"bind": "0.0.0.0", "port": 8080}, "maintenance": {"bind": "0.0.0.0", "port": 8081}, "www": "../www",
+          "users_file": "/tmp/pnt-edge/users.json", "audit_file": "/tmp/pnt-edge/audit.log"}
+}

@@ -10,14 +10,35 @@
 
 namespace edge {
 
+/// One serial device of a "serial" input (docs/SERIAL.md).
+struct SerialDeviceConfig {
+  std::string name;                  ///< label in the status (default: the driver name)
+  std::string driver;                ///< vn100 | ubx | nmea
+  std::string port;                  ///< /dev/ttyUSB0, /dev/ttyACM0, /dev/ttyTHS1 ... (a pty for the simulator)
+  int baud = 115200;
+  std::string channel;               ///< ASPN channel the filter config expects (IMU or position)
+  std::string velocity_channel;      ///< GNSS: also push NED velocity on this channel (empty = no)
+  std::string time_source = "host";  ///< host: device clock mapped onto the host clock; device: the receiver's UTC as is
+  double latency_ms = 0;             ///< fixed transport latency subtracted from the stamped time
+  std::vector<std::string> init;     ///< sent on open: vn100 ASCII commands (checksum added), ubx hex frames, nmea lines
+  bool configure = false;            ///< ubx: send CFG-VALSET (UBX only, NAV-PVT + NAV-TIMELS, rate_hz) on open
+  double rate_hz = 5;                ///< ubx configure: navigation rate
+  std::string ubx_port;              ///< ubx configure: uart1 | uart2 | usb (default from the device path)
+  double uere_m = 2.5;               ///< nmea without GST: sigma_h = hdop * uere
+  double sigma_floor_m = 0.3;        ///< horizontal position sigma floor (vertical 1.5x)
+};
+
 struct InputConfig {
-  std::string type = "lcm_log";              ///< lcm_log | lcm_udp
+  std::string type = "lcm_log";              ///< lcm_log | lcm_udp | serial
   std::string path;                          ///< lcm_log: the log file
   double speed = 0;                          ///< lcm_log: 0 = as fast as possible, 1 = real time
-  bool loop = false;                         ///< lcm_log: restart at the end (demo rigs)
+  bool loop = false;                         ///< lcm_log: at the end, restart filter and replay from the top (demo rigs)
   std::string url = "udpm://239.255.76.67:7667?ttl=0";  ///< lcm_udp
   std::string subscribe_to = "^/sensor/";    ///< lcm_udp: channel regex
   std::vector<std::string> channels;         ///< lcm_log: channels to push (empty = the filter config's transport list, else all)
+  std::vector<SerialDeviceConfig> devices;   ///< serial
+  std::string record_dir;                    ///< serial: record the raw bytes of every device here (empty = off)
+  double reorder_ms = 50;                    ///< serial: messages are held this long so devices are pushed in time order
 };
 
 struct NmeaConfig {
@@ -28,6 +49,7 @@ struct NmeaConfig {
   std::string talker = "GN";
   double rate_hz = 1.0;                  ///< at most this many epochs per second are emitted
   double utc_offset_sec = 0;             ///< added to the solution time (e.g. -18 for GPS time logs)
+  bool utc_from_receiver = true;         ///< serial input: use the receiver's UTC to correct the host-stamped solution time instead
   std::vector<std::string> sentences{"GGA", "RMC", "VTG", "HDT", "GST", "ZDA", "PASHR"};
 };
 

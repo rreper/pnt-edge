@@ -73,7 +73,7 @@ Errors: 400 (bad JSON), 401 (no session/token), 403 (not permitted on this surfa
 
 ## What the maintenance pages show
 
-Overview (health, position, integrity, recent events) · Inputs (counts, rates per channel, decode failures,
+Overview (health, position, integrity, recent events) · Inputs (serial devices with state, rate, errors and clock offset; counts, rates per channel, decode failures,
 gating counters per processor) · Solution (track in local NED with the 1-sigma ellipse and the HPL circle,
 horizontal sigma and HPL over time, speed and heading over time, selectable window) · Integrity (the whole
 `integrity/status` group, the exclusion/readmission/PACE timeline) · Outputs (NMEA counters and targets; change

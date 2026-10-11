@@ -19,6 +19,8 @@ struct StatusSnapshot {
   std::chrono::system_clock::time_point wall;
   std::uint64_t uptime_sec = 0;
   InputCounters input;
+  nlohmann::json devices = nlohmann::json::array();  ///< serial devices (input.devices in the JSON)
+  std::optional<double> utc_correction_s;            ///< applied to solution times for UTC output, when known
   std::uint64_t solutions = 0, nmea_sentences = 0;
   std::optional<Pva> last_solution;
   double last_solution_age_sec = -1;    ///< wall seconds since the last published solution, -1 = none yet

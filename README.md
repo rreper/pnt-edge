@@ -33,7 +33,8 @@ python3 -m venv .venv && .venv/bin/pip install meson ninja
 ## Configuration
 
 `configs/pnt-edge.json` points at a Cobra filter config (`filter_config`, any file from the Cobra `configs/`
-directory or your own), names the input (`lcm_log` or `lcm_udp`), the NMEA targets and the status file. Paths
+directory or your own), names the input (`lcm_log`, `lcm_udp` or `serial` devices: VN-100, u-blox UBX, NMEA —
+`docs/SERIAL.md`), the NMEA targets and the status file. Paths
 are relative to the config file. The filter's own sensors, lever arms, presets and processors are described
 in the Cobra config; `docs/GETTING_STARTED.md` of the Cobra repository explains that format.
 

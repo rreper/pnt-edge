@@ -1,0 +1,28 @@
+{
+  // Bench / appliance configuration with real devices on serial ports (docs/SERIAL.md).
+  //  - VN-100 on a USB-serial adapter at 921600 baud, told on open to stream the binary output group 1
+  //    (TimeStartup + DeltaThetaVel) at 200 Hz on its serial port 1 and to stop ASCII output.
+  //  - u-blox ZED-F9 on its USB port, told on open (CFG-VALSET, RAM) to send UBX NAV-PVT + NAV-TIMELS at 5 Hz
+  //    and no NMEA on that port.
+  // Times are stamped on the host clock with the device latency removed; the receiver's UTC corrects the NMEA
+  // output ("utc_from_receiver"). Sigmas come from the receiver (hAcc / vAcc) with a 0.3 m floor.
+  "filter_config": "/etc/pnt-edge/pos_ins.json",
+  "logging_level": "INFO",
+  "input": {
+    "type": "serial",
+    "reorder_ms": 50,
+    "record_dir": "",
+    "devices": [
+      {"name": "imu", "driver": "vn100", "port": "/dev/ttyUSB0", "baud": 921600, "channel": "/sensor/vn-100/imu",
+       "time_source": "host", "latency_ms": 0.5,
+       "init": ["VNWRG,06,0", "VNWRG,75,1,4,01,0801"]},
+      {"name": "gnss", "driver": "ubx", "port": "/dev/ttyACM0", "baud": 115200, "channel": "/sensor/ublox-ZED-F9T/position",
+       "time_source": "host", "configure": true, "rate_hz": 5, "ubx_port": "usb", "sigma_floor_m": 0.3}
+    ]
+  },
+  "nmea": {"udp_targets": [], "tcp_port": 10110, "command_udp_port": 10111, "bind_address": "0.0.0.0", "rate_hz": 1,
+           "utc_offset_sec": 0, "utc_from_receiver": true, "sentences": ["GGA", "RMC", "VTG", "HDT", "GST", "ZDA", "PASHR"]},
+  "status": {"file": "/run/pnt-edge/status.json", "interval_sec": 1},
+  "web": {"tactical": {"bind": "0.0.0.0", "port": 8080}, "maintenance": {"bind": "0.0.0.0", "port": 8081},
+          "users_file": "/etc/pnt-edge/users.json", "audit_file": "/var/log/pnt-edge/audit.log"}
+}

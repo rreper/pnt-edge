@@ -39,6 +39,8 @@ function refresh() {
     const now = Date.now() / 1000, rows = [];
     for (const [ch, n] of Object.entries(status.input.per_channel || {})) { const prev = lastRates[ch]; const rate = prev && now > lastRateT ? ((n - prev) / (now - lastRateT)) : null; rows.push(`<tr><td>${ch}</td><td class="num">${n}</td><td class="num">${rate == null ? '—' : rate.toFixed(1)}</td></tr>`); }
     lastRates = { ...(status.input.per_channel || {}) }; lastRateT = now; $('i-channels').innerHTML = rows.join('');
+    const devs = status.input.devices || []; $('i-devices-panel').style.display = devs.length ? '' : 'none';
+    $('i-devices').innerHTML = devs.map((d) => `<tr><td>${d.name} <span class="muted">(${d.driver})</span></td><td>${d.port}</td><td><span class="badge ${d.state === 'streaming' ? 'ok' : d.state === 'open' || d.state === 'opening' ? 'warn' : 'bad'}">${d.state}</span>${d.detail ? ' <span class="muted">' + d.detail + '</span>' : ''}</td><td class="num">${fmt.num(d.rate_hz, 1)}</td><td class="num">${d.frames}</td><td class="num">${d.errors}</td><td class="num">${d.last_frame_age_s < 0 ? '—' : fmt.num(d.last_frame_age_s, 1)}</td><td class="num">${d.clock_offset_s == null ? '—' : fmt.num(d.clock_offset_s, 3)}</td></tr>`).join('');
     const g = status.gating || {}, procs = new Set(Object.keys(g).map((k) => k.replace(/_(accepted|rejected|last_chi2)$/, '')));
     $('i-gating').innerHTML = [...procs].map((p) => `<tr><td>${p}</td><td class="num">${g[p + '_accepted'] ?? '—'}</td><td class="num">${g[p + '_rejected'] ?? '—'}</td><td class="num">${fmt.num(g[p + '_last_chi2'], 2)}</td></tr>`).join('');
   }
