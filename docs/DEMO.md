@@ -5,9 +5,19 @@ with the installed paths (`/usr/bin/pnt-edge`, `/etc/pnt-edge/pnt-edge.json`, `/
 
 ## 1. Build
 
+Build exactly as in the README, with the meson installed in the repository's venv (the system meson may be too
+old; a build directory configured by one meson version is not accepted by an older one):
+
 ```
-meson setup build && meson compile -C build && meson test -C build      # standard filter
-meson setup build-integ -Dintegrity=enabled && meson compile -C build-integ   # with the integrity plugin symlinked at subprojects/cobra-integrity
+python3 -m venv .venv && .venv/bin/pip install meson ninja     # once
+.venv/bin/meson setup build && .venv/bin/meson compile -C build && .venv/bin/meson test -C build
+```
+
+If you already built from the README, `build/pnt-edge` exists and this step is done. For the integrity variant,
+with the private plugin symlinked at `subprojects/cobra-integrity`:
+
+```
+.venv/bin/meson setup build-integ -Dintegrity=enabled && .venv/bin/meson compile -C build-integ
 ```
 
 ## 2. Set the maintenance password (once)

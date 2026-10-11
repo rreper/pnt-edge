@@ -69,6 +69,6 @@ control) from `www/`, plus a JSON API with Server-Sent Events that a fleet serve
 pnt-edge can link an out-of-tree Cobra orchestration plugin that monitors the aiding sources (solution
 separation, exclusion, protection level, PACE state). Place that plugin's source tree at
 `subprojects/cobra-integrity` (a symlink will do; the directory is ignored by git) and build with
-`meson setup build -Dintegrity=enabled`; the filter config then selects `"orchestration": "protected"`,
+`.venv/bin/meson setup build -Dintegrity=enabled`; the filter config then selects `"orchestration": "protected"`,
 the GGA fix quality follows the PACE state, `$PPNT,INTEG` is emitted once per epoch and the status file carries
 an `integrity` object (`docs/COMMAND_PROTOCOL.md`). Without it everything behaves as before.
