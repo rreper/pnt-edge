@@ -2,7 +2,7 @@
 //   pnt-edge config.json [--input-log file] [--once] [--print-status]
 //   pnt-edge config.json --set-password <user>        (reads the password from PNT_EDGE_PASSWORD or the terminal)
 // Reads measurements (LCM log or LCM UDP multicast), runs the filter through the push API, emits NMEA 0183
-// on the tactical interface, keeps a JSON status snapshot, and serves the tactical display and the maintenance
+// over the single Ethernet port, keeps a JSON status snapshot, and serves the tactical display and the maintenance
 // UI over HTTP (docs/WEB_UI.md).
 #include "edge_config.hpp"
 #include "inputs.hpp"

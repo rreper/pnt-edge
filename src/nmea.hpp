@@ -1,4 +1,4 @@
-// NMEA 0183 sentence generation from a Cobra PVA solution (tactical interface output).
+// NMEA 0183 sentence generation from a Cobra PVA solution (tactical surface output).
 // Sentences: GGA, RMC, VTG, HDT, GST, ZDA and the Ashtech-style PASHR attitude sentence. Every sentence is
 // returned with its checksum and CRLF, ready to send. Talker id is configurable (GN by default).
 #pragma once

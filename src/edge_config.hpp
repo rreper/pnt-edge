@@ -24,7 +24,7 @@ struct NmeaConfig {
   std::vector<std::string> udp_targets;  ///< "host:port"
   int tcp_port = 0;                      ///< 0 = no TCP server (commands are also read on it)
   int command_udp_port = 10111;          ///< $PPNT commands by UDP datagram, replies to the sender; 0 = off
-  std::string bind_address = "0.0.0.0";  ///< interface for the TCP server (the tactical interface)
+  std::string bind_address = "0.0.0.0";  ///< address for the TCP server and the command port (the one Ethernet port: 0.0.0.0)
   std::string talker = "GN";
   double rate_hz = 1.0;                  ///< at most this many epochs per second are emitted
   double utc_offset_sec = 0;             ///< added to the solution time (e.g. -18 for GPS time logs)

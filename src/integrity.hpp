@@ -1,4 +1,4 @@
-// Integrity status surfaced on the tactical interface: read from the filter's registry group `integrity/status`
+// Integrity status surfaced on the tactical surface: read from the filter's registry group `integrity/status`
 // (written by an integrity-monitoring orchestration plugin when one is linked), mapped to the GGA fix quality and
 // to the $PPNT,INTEG sentence. Without such a plugin the group does not exist and everything here is a no-op.
 #pragma once

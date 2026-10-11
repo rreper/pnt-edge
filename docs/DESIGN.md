@@ -3,8 +3,8 @@
 ## 1. What it is
 
 A product application that runs the Cobra C++ navigation filter on an edge single-board computer with two
-Ethernet interfaces: a tactical interface that streams NMEA 0183 (and ASPN-23 over LCM) and accepts `$PPNT`
-commands, and a maintenance interface serving a browser UI with authentication for health, configuration and
+surfaces on its single Ethernet port, told apart by port number: a tactical surface that streams NMEA 0183 (and ASPN-23 over LCM) and accepts `$PPNT`
+commands, and a maintenance surface serving a browser UI with authentication for health, configuration and
 software maintenance of the application and the connected devices.
 
 The filter stays in its own repository (github.com/rreper/Cobra) and is consumed here as a versioned
@@ -29,15 +29,15 @@ sensors ──► inputs ──► cobra::Filter (push API) ──► solutions 
 - **Filter**: `cobra::Filter` built from a Cobra JSON config. All sensor modelling (lever arms, IMU presets,
   processors, gating) lives in that file; pnt-edge never duplicates it.
 - **Outputs** (`src/outputs.*`, `src/nmea.*`): NMEA 0183 sentences from each published solution, rate-limited,
-  to UDP targets and TCP clients bound to the tactical interface; ASPN-23 over LCM through Cobra's UDP transport
+  to UDP targets and TCP clients on the Ethernet port; ASPN-23 over LCM through Cobra's UDP transport
   (Phase A.2). Time: solution time of validity plus a configured UTC offset; Phase A.2 derives the offset from
   the GNSS receiver's leap-second data.
 - **Status** (`src/status.*`): a JSON snapshot every second (atomic file write) with input counters, solution
   count and age, last solution with sigmas, gating counters from the registry, TCP client count, and a one-word
   health verdict. The maintenance UI reads this model; the `$PPNT,STATUS` reply is a projection of it.
-- **Commands**: `$PPNT` sentences on the tactical interface (docs/COMMAND_PROTOCOL.md).
+- **Commands**: `$PPNT` sentences on the NMEA TCP connections and a UDP command port (docs/COMMAND_PROTOCOL.md).
 
-## 3. Maintenance interface (Phase B)
+## 3. Maintenance surface (Phase B)
 
 An embedded HTTPS server in the daemon (civetweb or Boost.Beast; no second runtime on the board) serving a
 static single-page UI and a REST + WebSocket API bound to eth1 only:
@@ -58,8 +58,8 @@ static single-page UI and a REST + WebSocket API bound to eth1 only:
 ## 4. Platform (Phase C)
 
 Linux on the target SBC (Jetson Orin class assumed), systemd, read-only root with A/B updates (RAUC or Mender),
-hardware watchdog, time from the GNSS receiver with a PTP or NTP server on the tactical network as an option.
-Hardware-in-the-loop rig: Cobra's `lcm_log_player` feeds the tactical interface, `log_stats` and the
+hardware watchdog, time from the GNSS receiver with a PTP or NTP server on the network as an option.
+Hardware-in-the-loop rig: Cobra's `lcm_log_player` feeds the LCM input, `log_stats` and the
 degraded-sensor matrix score the result.
 
 ## 5. Security notes
@@ -76,7 +76,7 @@ the UI runs only over TLS; secrets never in the repository; the daemon drops pri
   repository as a Cobra orchestration plugin; pnt-edge will surface its state through NMEA fix quality, GST and
   `$PPNT,STATUS`.
 
-## Integrity status on the tactical interface
+## Integrity status on the tactical surface
 
 `src/integrity.hpp` reads the filter's registry group `integrity/status` (written by an integrity-monitoring
 orchestration when one is linked; the algorithm lives outside this repository) and maps it: PACE state to the

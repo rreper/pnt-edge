@@ -1,17 +1,19 @@
 # Web surfaces
 
 pnt-edge serves two HTTP surfaces from the daemon itself (cpp-httplib, no interpreter, no build step, works
-offline). Both are bound to configured interfaces (`web` in the config) and share one JSON API.
+offline). The appliance has a single Ethernet port: both surfaces are served on it and told apart by port number
+(`web` in the config); they share one JSON API. The network is assumed dedicated, which is why the tactical
+display carries no login; the maintenance UI adds one.
 
 | surface | default | login | what |
 |---|---|---|---|
-| tactical display | `:8080` on the tactical network | none | large readouts (position, heading, speed, fix quality, PACE, HPL, excluded sources), the track, and a **Reset filter** button |
-| maintenance UI | `:8081` on the maintenance network | user + password (plain HTTP) or a bearer token (read-only) | overview, inputs, solution with plots, integrity timeline, outputs, log, config; control |
+| tactical display | `:8080` | none | large readouts (position, heading, speed, fix quality, PACE, HPL, excluded sources), the track, and a **Reset filter** button |
+| maintenance UI | `:8081` | user + password (plain HTTP) or a bearer token (read-only) | overview, inputs, solution with plots, integrity timeline, outputs, log, config; control |
 
 ```json
 "web": {
-  "tactical":    { "bind": "192.168.10.1", "port": 8080 },
-  "maintenance": { "bind": "192.168.20.1", "port": 8081 },
+  "tactical":    { "bind": "0.0.0.0", "port": 8080 },
+  "maintenance": { "bind": "0.0.0.0", "port": 8081 },
   "users_file":  "/etc/pnt-edge/users.json",
   "api_token":   "",
   "audit_file":  "/var/log/pnt-edge/audit.log",
@@ -31,7 +33,7 @@ pnt-edge /etc/pnt-edge/pnt-edge.json --set-password admin      # prompts, or rea
 
 Passwords are stored as PBKDF2-HMAC-SHA256 (100 000 iterations, per-user salt) in `users_file` (mode 0600).
 A login sets an `HttpOnly` session cookie valid for 12 hours of inactivity; failed logins are delayed and
-logged. The maintenance surface is plain HTTP by design (a dedicated maintenance network); put a TLS proxy in
+logged. The maintenance surface is plain HTTP by design (a dedicated network); put a TLS proxy in
 front of it if that changes.
 
 ## Fleet access

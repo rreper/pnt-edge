@@ -10,9 +10,9 @@
 An edge PNT appliance: the [Cobra C++ navigation filter](https://github.com/rreper/Cobra) (Pinson15 GNSS/INS
 error-state EKF, pntOS plugin architecture) running as a service on a single-board computer, with
 
-- a **tactical interface** (Ethernet 1): NMEA 0183 output over UDP and TCP (GGA, RMC, VTG, HDT, GST, ZDA, PASHR),
+- a **tactical surface**: NMEA 0183 output over UDP and TCP (GGA, RMC, VTG, HDT, GST, ZDA, PASHR),
   ASPN-23 over LCM, and a `$PPNT` proprietary NMEA command set (docs/COMMAND_PROTOCOL.md);
-- a **maintenance interface** (Ethernet 2): a browser UI with username/password authentication for health,
+- a **maintenance surface**: a browser UI with username/password authentication for health,
   configuration and software maintenance of the application and every connected device (Phase B).
 
 Status: Phase A skeleton. The daemon runs the filter through its push API, takes measurements from an LCM log
@@ -46,6 +46,11 @@ packaging/  systemd unit
 docs/       DESIGN.md, ROADMAP.md, COMMAND_PROTOCOL.md
 tests/      GoogleTest (NMEA formatting, config, end-to-end replay)
 ```
+
+The appliance has one Ethernet port. Both surfaces are served on it and told apart by port number: NMEA and
+`$PPNT` on the NMEA ports, the tactical display on `:8080`, the maintenance UI on `:8081`. The network is
+assumed dedicated (the tactical display and the `$PPNT` commands carry no login); the maintenance UI adds a
+login on top.
 
 ## `$PPNT` commands
 

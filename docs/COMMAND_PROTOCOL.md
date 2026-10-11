@@ -1,4 +1,4 @@
-# `$PPNT` command protocol (tactical interface)
+# `$PPNT` command protocol (tactical surface)
 
 Proprietary NMEA 0183 sentences, talker `P`, mnemonic `PNT`. Commands arrive on the same TCP port that serves
 NMEA output (and on a UDP command port); every command is answered with an acknowledgement sentence on the
@@ -36,7 +36,7 @@ want more than NMEA carries.
 
 ## Transport and configuration
 
-Commands are read on two paths, both on the NMEA bind address (`nmea.bind_address`, the tactical interface):
+Commands are read on two paths, both on the NMEA bind address (`nmea.bind_address`; the appliance has one Ethernet port, so this is normally `0.0.0.0`):
 
 - the NMEA TCP server (`nmea.tcp_port`): any connected client may write `$PPNT` lines on the same connection
   it receives the stream on; replies go to that client only, interleaved with the stream;

@@ -1,4 +1,4 @@
-// NMEA output: UDP datagrams to configured targets and a TCP line server on the tactical interface.
+// NMEA output: UDP datagrams to configured targets and a TCP line server; $PPNT commands come back the same ways.
 #pragma once
 
 #include <netinet/in.h>
