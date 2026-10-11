@@ -60,14 +60,14 @@ config file.
 Example session over TCP (`nc <device> 10110`):
 
 ```
-$PPNT,STATUS,Q*0F
+$PPNT,STATUS,Q*5F
 $PPNT,STATUS,R,ok,0.2,1,,1.41,2.00,0.50,3617*5B
 $PPNT,ACK,STATUS,OK*6F
-$PPNT,OUT,S,5,GGA+HDT+GST*2E
+$PPNT,OUT,S,5,GGA+HDT+GST*6B
 $PPNT,ACK,OUT,OK*35
-$PPNT,HEADING,S,123.4,1*1C
-$PPNT,ACK,HEADING,OK,effective on the next filter reset*2A
-$PPNT,RESET,S,filter*1F
+$PPNT,HEADING,S,123.4,1*1A
+$PPNT,ACK,HEADING,OK,effective on the next filter reset*58
+$PPNT,RESET,S,filter*30
 $PPNT,ACK,RESET,OK*2E
 ```
 

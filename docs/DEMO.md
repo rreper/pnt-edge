@@ -1,0 +1,80 @@
+# Running pnt-edge by hand and demoing the web interface
+
+Everything below runs from the repository root on the build machine; the same commands work on the appliance
+with the installed paths (`/usr/bin/pnt-edge`, `/etc/pnt-edge/pnt-edge.json`, `/usr/local/share/pnt-edge/www`).
+
+## 1. Build
+
+```
+meson setup build && meson compile -C build && meson test -C build      # standard filter
+meson setup build-integ -Dintegrity=enabled && meson compile -C build-integ   # with the integrity plugin symlinked at subprojects/cobra-integrity
+```
+
+## 2. Set the maintenance password (once)
+
+```
+PNT_EDGE_PASSWORD='choose a long one' ./build/pnt-edge configs/pnt-edge-demo.json --set-password admin
+```
+
+It writes `/tmp/pnt-edge/users.json` for the demo config (`/etc/pnt-edge/users.json` for the installed one).
+
+## 3. Run
+
+```
+./build/pnt-edge configs/pnt-edge-demo.json
+```
+
+replays the 60 s example log at real time and loops it, serving on every interface:
+
+| what | where |
+|---|---|
+| tactical display | http://\<host\>:8080/ (no login) |
+| maintenance UI | http://\<host\>:8081/ (login) |
+| NMEA stream + `$PPNT` commands | TCP \<host\>:10110 |
+| `$PPNT` commands by datagram | UDP \<host\>:10111 |
+| status snapshot | /tmp/pnt-edge/status.json, audit log /tmp/pnt-edge/audit.log |
+
+For a long demo with driving dynamics use the full 43-minute recording instead of the 60 s loop:
+
+```
+./build/pnt-edge configs/pnt-edge-demo.json --input-log <path>/cobra_gps_ins_example_data.log
+```
+
+(On this machine the recording is in the Cobra Python venv:
+`~/orin/work/pntos/Cobra/.venv/lib/python3.12/site-packages/pntos_python_datasets_lcm/cobra_gps_ins_example_data.log`.)
+
+With the integrity build, `./build-integ/pnt-edge configs/pnt-edge-demo-protected.json` runs the protected
+two-source filter instead: the tactical display then shows PACE, HPL and excluded sources, `$PPNT,INTEG` is in
+the stream and the Integrity tab fills. To show a spoofing event live, replace the filter config path in that
+file by one of the private repository's scenario configs (`configs/scenarios/ramp05.json` pulls GNSS at 0.5 m/s
+from 600 s of the full recording; `cell_step.json` steps the alternate by 40 m) and use the full log.
+
+## 4. Demo walk-through
+
+1. Open the tactical display. Point out the health badge, the position and heading readouts, the track with its
+   1-sigma ellipse, and the Sources panel counting messages per channel.
+2. Press **Reset filter**. The health badge goes to `aligning` for about ten seconds (static alignment) and back
+   to `ok`; the solution age counts up meanwhile. The reset lands in the audit log with the caller's address.
+3. Open the maintenance UI, sign in. Overview: health, position, integrity, recent events (the reset is there).
+   Inputs: per-channel rates and the gating counters. Solution: the track with follow mode, the horizontal sigma
+   and HPL plot, speed and heading. Log: the filter's own lines (alignment, gate rejections) with a level filter.
+4. Outputs tab: change the NMEA rate to 2 Hz and the sentences to `GGA RMC GST INTEG`, Apply. Watch the stream in
+   a second terminal: `nc <host> 10110`. The change is saved to the config file.
+5. In that terminal, type a command on the same connection and watch the acknowledgement arrive between the
+   sentences (checksums are required; these are correct):
+   ```
+   $PPNT,STATUS,Q*5F
+   $PPNT,VER,Q*0A
+   $PPNT,OUT,S,5,GGA+HDT*00
+   $PPNT,RESET,S,filter*30
+   ```
+   or by datagram: `printf '$PPNT,VER,Q*0A\r\n' | nc -u -w1 <host> 10111`.
+6. Config tab: the live pnt-edge config (editable, saved on Save) and the filter config (read-only).
+7. Fleet access: `curl -H 'Authorization: Bearer <token>' http://<host>:8081/api/v1/solution` once `web.api_token`
+   is set in the config; control calls with the token answer 403.
+
+## 5. Useful checks
+
+- `curl -s http://<host>:8080/api/v1/status | jq .health`
+- `curl -N http://<host>:8080/api/v1/stream` shows the live updates (Server-Sent Events).
+- `journalctl -u pnt-edge -f` on the appliance; `tail -f /tmp/pnt-edge/audit.log` for the audit trail.
