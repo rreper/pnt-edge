@@ -38,6 +38,21 @@ its own; the build then stops with "Subproject pntos-cpp version is x but >=y re
 
 `meson install` installs `pnt-edge`, `/etc/pnt-edge/pnt-edge.json` and the systemd unit.
 
+### Without git or network access
+
+Every tagged release carries `pnt-edge-<tag>-src.tar.gz` (Releases page): the sources with all subprojects inside
+(Cobra, ASPN, Eigen, googletest), so nothing is fetched. Download it in a browser, then:
+
+```bash
+tar -xzf pnt-edge-v0.1.0-src.tar.gz && cd pnt-edge-0.1.0
+python3 -m venv .venv && .venv/bin/pip install meson ninja     # or a system meson >= 1.3 and ninja
+.venv/bin/meson setup build --wrap-mode=nodownload
+.venv/bin/meson compile -C build
+```
+
+The release also has a prebuilt `pnt-edge-<tag>-linux-x86_64.tar.gz` (ubuntu-24.04 glibc). The GitHub "Download
+ZIP" of the repository does not contain the subprojects; it needs git for `meson setup`.
+
 ## Configuration
 
 `configs/pnt-edge.json` points at a Cobra filter config (`filter_config`, any file from the Cobra `configs/`

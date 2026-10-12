@@ -1,0 +1,42 @@
+name: release
+on:
+  push:
+    tags: ['v*']
+jobs:
+  package:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++ ninja-build python3-pip
+          pip3 install --user meson
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - name: Build and test
+        run: |
+          meson setup build -Dbuildtype=release -Dintegrity=disabled
+          meson compile -C build
+          meson test -C build --print-errorlogs
+      # Source bundle with every subproject inside (Cobra, ASPN, Eigen, googletest): builds on a machine
+      # without git or network access. The private integrity plugin is never part of it.
+      - name: Source bundle
+        run: |
+          meson dist -C build --include-subprojects --no-tests --formats gztar
+          tar -tzf build/meson-dist/pnt-edge-*.tar.gz | grep -qi cobra-integrity && { echo "private plugin in the bundle"; exit 1; } || true
+          mv build/meson-dist/pnt-edge-*.tar.gz pnt-edge-${GITHUB_REF_NAME}-src.tar.gz
+          sha256sum pnt-edge-${GITHUB_REF_NAME}-src.tar.gz > pnt-edge-${GITHUB_REF_NAME}-src.tar.gz.sha256
+      - name: Binary (x86_64, glibc of ubuntu-24.04)
+        run: |
+          DESTDIR=$PWD/stage meson install -C build
+          tar -C stage -czf pnt-edge-${GITHUB_REF_NAME}-linux-x86_64.tar.gz .
+          sha256sum pnt-edge-${GITHUB_REF_NAME}-linux-x86_64.tar.gz > pnt-edge-${GITHUB_REF_NAME}-linux-x86_64.tar.gz.sha256
+      - name: GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            pnt-edge-*.tar.gz
+            pnt-edge-*.sha256
+          generate_release_notes: true
