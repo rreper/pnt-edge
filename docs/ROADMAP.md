@@ -30,7 +30,10 @@ the receiver for the NMEA output, per-device health in the status and the mainte
 reconnection on unplug. `pnt-edge-serial-sim` plays an LCM log as the two devices on pseudo-terminals, which the
 test suite and `configs/pnt-edge-serial-sim.json` use. `docs/SERIAL.md`. Open: the bench run with real devices
 (VN-100 register writes and the u-blox port keys are per the vendor protocols but not yet exercised on hardware),
-ASPN-23 over LCM output, serial NMEA output.
+ASPN-23 over LCM output, serial NMEA output. Soak (2026-10-12, 8 h + continuing on the simulator): NMEA pacing froze on a
+backwards UTC step (fixed), Cobra retained every solution behind the callback (fixed in v0.2.8), a host clock step after
+suspend/resume left the filter in error for good (the daemon now restarts it, event `CLOCK_STEP`). Option kept open: run the
+filter on `CLOCK_MONOTONIC` and apply the UTC offset only at the outputs, which would make host clock steps invisible.
 
 ## Phase A.3, delivered (2026-10-11): `$PPNT` commands
 

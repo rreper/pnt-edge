@@ -35,6 +35,8 @@ class Input {
   virtual nlohmann::json devices() const { return nlohmann::json::array(); }
   /// What to add to a solution time on this input's timeline to get UTC, when the input knows (serial GNSS).
   virtual std::optional<std::int64_t> utc_correction_ns() const { return std::nullopt; }
+  /// True when message times come from the host clock (a step of the host clock then breaks the filter's timeline).
+  virtual bool uses_host_clock() const { return false; }
   InputCounters counters() const {
     std::lock_guard lk(mutex_);
     return counters_;

@@ -360,4 +360,10 @@ std::optional<std::int64_t> SerialInput::utc_correction_ns() const {
   return std::nullopt;
 }
 
+bool SerialInput::uses_host_clock() const {
+  for (const auto& d : cfg_.devices)
+    if (d.time_source != "device") return true;
+  return false;
+}
+
 }  // namespace edge

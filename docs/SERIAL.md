@@ -67,6 +67,13 @@ Everything the filter sees must be on one timeline. By default that is the host'
 - `time_source: "device"` for the GNSS uses the receiver's UTC directly; use it only when the host clock is
   synchronised to the receiver, otherwise the IMU (host-stamped) and the GNSS would sit on different timelines.
 
+- The host clock itself can step: suspend/resume, NTP or the GNSS setting the time at boot, a manual `date`. The
+  daemon compares `CLOCK_REALTIME` with `CLOCK_MONOTONIC` ten times a second; a step of more than 1 s restarts the
+  filter on the new timeline when any device is host-stamped (event `CLOCK_STEP`, `clock.host_steps` and
+  `clock.last_host_step_s` in the status; about ten seconds of `aligning`). Without a restart the filter stays in
+  error for good: found when the soak laptop slept for 7.4 h. With `lcm_udp` / `lcm_log` inputs the step is only
+  logged, their times do not depend on the host clock.
+
 Message times reach the filter in order through the reorder buffer (`reorder_ms`).
 
 ## Health

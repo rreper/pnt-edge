@@ -27,6 +27,7 @@ class SerialInput final : public Input {
   bool finished() const override { return false; }
   nlohmann::json devices() const override;
   std::optional<std::int64_t> utc_correction_ns() const override;
+  bool uses_host_clock() const override;
 
   /// Builds the ASPN messages a device would push for decoded content; exposed for the tests.
   static std::shared_ptr<pntos::api::AspnBase> imu_message(std::int64_t tov_ns, const serial::vn100::Sample& s);

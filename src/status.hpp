@@ -21,6 +21,8 @@ struct StatusSnapshot {
   InputCounters input;
   nlohmann::json devices = nlohmann::json::array();  ///< serial devices (input.devices in the JSON)
   std::optional<double> utc_correction_s;            ///< applied to solution times for UTC output, when known
+  int host_clock_steps = 0;                          ///< host clock steps seen since start (each restarts a host-stamped filter)
+  std::optional<double> last_host_clock_step_s;       ///< the most recent one, signed
   std::uint64_t solutions = 0, nmea_sentences = 0;
   std::optional<Pva> last_solution;
   double last_solution_age_sec = -1;    ///< wall seconds since the last published solution, -1 = none yet

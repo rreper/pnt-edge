@@ -17,7 +17,11 @@ json status_to_json(const StatusSnapshot& s) {
   j["input"] = {{"pushed", s.input.pushed}, {"decode_failures", s.input.decode_failures}, {"last_tov_s", s.input.last_tov_ns * 1e-9},
                 {"per_channel", s.input.per_channel}};
   if (!s.devices.empty()) j["input"]["devices"] = s.devices;
-  if (s.utc_correction_s) j["clock"] = {{"utc_correction_s", *s.utc_correction_s}};
+  if (s.utc_correction_s) j["clock"]["utc_correction_s"] = *s.utc_correction_s;
+  if (s.host_clock_steps) {
+    j["clock"]["host_steps"] = s.host_clock_steps;
+    j["clock"]["last_host_step_s"] = *s.last_host_clock_step_s;
+  }
   j["solutions"] = s.solutions;
   j["nmea_sentences"] = s.nmea_sentences;
   j["last_solution_age_sec"] = s.last_solution_age_sec;

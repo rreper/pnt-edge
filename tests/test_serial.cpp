@@ -249,6 +249,29 @@ TEST(Ubx, NavPvtRoundTripValsetAndResync) {
 
 // ----------------------------------------------------------------------------- clock mapping
 
+TEST(HostClockMonitor, ReportsOnlyRealSteps) {
+  HostClockMonitor m(1.0);
+  const std::int64_t s = 1'000'000'000;
+  std::int64_t real = 1'791'812'193 * s, mono = 600 * s;
+  EXPECT_FALSE(m.check(real, mono));
+  for (int i = 0; i < 100; ++i) {  // a day of 100 ms ticks with 50 ppm of relative drift is no step
+    real += 100'000'000 + 5'000;
+    mono += 100'000'000;
+    EXPECT_FALSE(m.check(real, mono)) << i;
+  }
+  // suspend: the monotonic clock stops, the realtime clock does not (7.4 h on the soak laptop)
+  real += 26540 * s;
+  mono += 50'000'000;
+  auto step = m.check(real, mono);
+  ASSERT_TRUE(step);
+  EXPECT_NEAR(*step, 26540.0, 0.1);
+  // the new baseline holds; a backwards NTP step is reported with its sign
+  EXPECT_FALSE(m.check(real + s, mono + s));
+  step = m.check(real + 2 * s - 3 * s, mono + 2 * s);
+  ASSERT_TRUE(step);
+  EXPECT_NEAR(*step, -3.0, 1e-6);
+}
+
 TEST(ClockMapper, ShedsLatencyKeepsMonotonic) {
   ClockMapper m(2.0, 1e-3);
   const std::int64_t host0 = 1'000'000'000'000LL;

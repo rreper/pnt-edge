@@ -6,6 +6,7 @@
 // UI over HTTP (docs/WEB_UI.md).
 #include "edge_config.hpp"
 #include "inputs.hpp"
+#include "serial/clock.hpp"
 #include "integrity.hpp"
 #include "nmea.hpp"
 #include "outputs.hpp"
@@ -241,8 +242,32 @@ int main(int argc, char** argv) {
     const auto start = std::chrono::steady_clock::now();
     auto next_status = std::chrono::steady_clock::now();
     std::string last_pace, last_excluded, last_health;
+    edge::serial::HostClockMonitor host_clock;
+    int host_clock_steps = 0;
+    std::optional<double> last_host_clock_step_s;
     while (!g_stop) {
       std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      {
+        timespec rt_ts{}, mono_ts{};
+        clock_gettime(CLOCK_REALTIME, &rt_ts);
+        clock_gettime(CLOCK_MONOTONIC, &mono_ts);
+        if (auto step = host_clock.check(rt_ts.tv_sec * 1'000'000'000LL + rt_ts.tv_nsec, mono_ts.tv_sec * 1'000'000'000LL + mono_ts.tv_nsec)) {
+          ++host_clock_steps;
+          last_host_clock_step_s = *step;
+          char buf[64];
+          std::snprintf(buf, sizeof buf, "%.3f", *step);
+          if (rt->input->uses_host_clock()) {
+            say("WARN", std::string("host clock stepped by ") + buf + " s (suspend/resume or time set): restarting the filter on the new timeline");
+            hub.event("CLOCK_STEP", std::string("host clock stepped by ") + buf + " s, filter restarted");
+            stop_runtime(*rt);
+            rt.reset();
+            rt = start_runtime(cfg, hub, nopt);
+            continue;
+          }
+          say("INFO", std::string("host clock stepped by ") + buf + " s; message times do not depend on it");
+          hub.event("CLOCK_STEP", std::string("host clock stepped by ") + buf + " s");
+        }
+      }
       if (rt->input->finished()) {
         if (once) break;
         if (cfg.input.type == "lcm_log" && cfg.input.loop) {
@@ -352,6 +377,8 @@ int main(int argc, char** argv) {
           snap.utc_correction_s = static_cast<double>(*corr) * 1e-9;
         }
       }
+      snap.host_clock_steps = host_clock_steps;
+      snap.last_host_clock_step_s = last_host_clock_step_s;
       snap.filter_error = rt->filter->error_logged();
       snap.gating = edge::gating_from_registry(*rt->filter);
       snap.integrity = edge::integrity_from_registry(*rt->filter);
