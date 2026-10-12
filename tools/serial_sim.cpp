@@ -108,10 +108,15 @@ int main(int argc, char** argv) {
 
   const std::int64_t offset_ns = static_cast<std::int64_t>(utc_offset * 1e9);
   std::uint64_t imu_n = 0, gnss_n = 0;
+  // Looping keeps time continuous: each pass is shifted by the span of the previous one plus one IMU period, so the
+  // devices look like a receiver and an IMU that keep running (TimeStartup grows, UTC never steps back).
+  const auto wall0 = std::chrono::steady_clock::now();
+  std::optional<std::int64_t> t0, first_tov;
+  std::int64_t pass_tov_offset = 0, pass_ev_offset = 0, pass = 0;
   do {
     pntos::cobra::lcm::LcmLogReader reader(log);
-    const auto wall0 = std::chrono::steady_clock::now();
-    std::optional<std::int64_t> t0, first_tov;
+    std::optional<std::int64_t> pass_first_t, pass_first_ev;
+    std::int64_t last_t = 0, last_ev = 0;
     while (!g_stop) {
       auto ev = reader.next();
       if (!ev) break;
@@ -125,12 +130,17 @@ int main(int argc, char** argv) {
       if (!msg) continue;
       auto tov = pntos::cobra::utils::time_of_validity(*msg);
       if (!tov) continue;
+      const std::int64_t ev_us = ev->timestamp_us + pass_ev_offset;
+      if (!pass_first_ev) pass_first_ev = ev_us;
+      last_ev = ev_us;
       if (speed > 0) {
-        if (!t0) t0 = ev->timestamp_us;
-        std::this_thread::sleep_until(wall0 + std::chrono::microseconds(static_cast<std::int64_t>((ev->timestamp_us - *t0) / speed)));
+        if (!t0) t0 = ev_us;
+        std::this_thread::sleep_until(wall0 + std::chrono::microseconds(static_cast<std::int64_t>((ev_us - *t0) / speed)));
       }
-      const std::int64_t t = tov->elapsed_nsec + offset_ns;
+      const std::int64_t t = tov->elapsed_nsec + offset_ns + pass_tov_offset;
       if (!first_tov) first_tov = t;
+      if (!pass_first_t) pass_first_t = t;
+      last_t = t;
       if (auto* m = dynamic_cast<const aspn23_eigen::MeasurementImu*>(msg.get())) {
         edge::serial::vn100::Sample s;
         s.integrated = m->get_imu_type() == ASPN23_MEASUREMENT_IMU_IMU_TYPE_INTEGRATED;
@@ -200,6 +210,9 @@ int main(int argc, char** argv) {
         ++gnss_n;
       }
     }
+    if (pass_first_t) pass_tov_offset += last_t - *pass_first_t + 10'000'000;
+    if (pass_first_ev) pass_ev_offset += last_ev - *pass_first_ev + 10'000;
+    if (loop && !g_stop) std::cerr << "serial-sim: pass " << ++pass << " done, continuing (" << imu_n << " IMU frames, " << gnss_n << " fixes)\n";
   } while (loop && !g_stop);
   std::cerr << "serial-sim: " << imu_n << " IMU frames, " << gnss_n << " GNSS fixes; dropped (no reader) " << imu.dropped << " / " << gnss.dropped << "\n";
   return 0;

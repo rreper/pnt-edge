@@ -113,7 +113,7 @@ std::unique_ptr<Runtime> start_runtime(const edge::EdgeConfig& cfg, edge::Hub& h
     const auto integ = edge::integrity_from_registry(*r->filter);
     p.fix_quality = edge::fix_quality_for(integ, p.fix_quality);
     hub.push_solution(p, integ);
-    if (min_gap_ns > 0 && r->last_emitted_tov != 0 && p.tov_ns - r->last_emitted_tov < min_gap_ns - 1'000'000) return;
+    if (!edge::emit_due(r->last_emitted_tov, p.tov_ns, min_gap_ns)) return;
     r->last_emitted_tov = p.tov_ns;
     for (const auto& s : edge::sentences(p, nopt)) r->out->send(s);
     if (nopt.integ && integ.present) r->out->send(edge::integ_sentence(integ));

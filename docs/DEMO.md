@@ -96,9 +96,11 @@ Maintenance UI → Inputs shows the two devices streaming (≈100 Hz and 1 Hz fo
 error counters; unplugging is simulated by stopping the simulator (state `lost`, then `closed` until it is back).
 Real devices: `configs/pnt-edge-serial.json` and docs/SERIAL.md.
 
-Note on looping: a looped log restarts the filter at the end of each pass (event `REPLAY`, about ten seconds of
-`aligning`), because the filter cannot follow time jumping back to the start of the recording. For a continuous
-long demo use the full recording with `--input-log`.
+Note on looping: a looped `lcm_log` input restarts the filter at the end of each pass (event `REPLAY`, about ten
+seconds of `aligning`), because the filter cannot follow time jumping back to the start of the recording. The serial
+simulator instead keeps time continuous across passes (TimeStartup keeps growing, the receiver's UTC never steps back),
+so the filter runs through without a restart; the position jumps back to the start of the recording at each wrap. For
+a continuous long demo use the full recording with `--input-log`.
 
 ## 6. Useful checks
 

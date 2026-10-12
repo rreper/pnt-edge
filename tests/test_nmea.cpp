@@ -22,6 +22,17 @@ TEST(Nmea, ChecksumAndFormatting) {
   EXPECT_EQ(nmea_date(t), "190525");
 }
 
+TEST(Nmea, EmitPacingResetsOnBackwardsTime) {
+  const std::int64_t s = 1'000'000'000;
+  EXPECT_TRUE(emit_due(0, 10 * s, s));          // first solution
+  EXPECT_TRUE(emit_due(10 * s, 11 * s, s));     // one second later
+  EXPECT_TRUE(emit_due(10 * s, 10 * s + 999'500'000, s));  // a millisecond of slack
+  EXPECT_FALSE(emit_due(10 * s, 10 * s + 500'000'000, s));
+  EXPECT_TRUE(emit_due(10 * s, 10 * s, 0));     // pacing off
+  // the receiver's UTC jumped back a minute (or the replay wrapped): emit and re-anchor, do not go silent
+  EXPECT_TRUE(emit_due(10 * s, 10 * s - 60 * s, s));
+}
+
 TEST(Nmea, SentencesFromAPva) {
   Pva p;
   p.tov_ns = 1747680889'630'000'000LL;

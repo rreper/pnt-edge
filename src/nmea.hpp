@@ -48,6 +48,15 @@ std::string pashr(const Pva& p, const NmeaOptions& o);
 /// All enabled sentences for one epoch, in the order above.
 std::vector<std::string> sentences(const Pva& p, const NmeaOptions& o);
 
+/// Output pacing: a sentence set is due when at least min_gap_ns (minus a millisecond of slack) has passed since the
+/// last one, or when the time of validity stepped backwards (receiver UTC jump, replay wrap): a backwards step resets the
+/// pacing instead of silencing the output until the clock catches up. last_tov 0 means nothing was emitted yet.
+inline bool emit_due(std::int64_t last_tov, std::int64_t tov, std::int64_t min_gap_ns) {
+  if (min_gap_ns <= 0 || last_tov == 0) return true;
+  const std::int64_t gap = tov - last_tov;
+  return gap < 0 || gap >= min_gap_ns - 1'000'000;
+}
+
 // helpers exposed for tests
 std::string nmea_lat(double lat_rad);   ///< "ddmm.mmmmmmm,N"
 std::string nmea_lon(double lon_rad);   ///< "dddmm.mmmmmmm,E"

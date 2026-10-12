@@ -90,7 +90,9 @@ VN-100 command appears in `detail`.
 Options: `--imu binary|ascii`, `--gnss ubx|nmea`, `--speed` (0 = as fast as possible), `--utc-offset` (seconds added
 to the log's times), `--imu-channel` / `--gnss-channel` (which log channels to play). The VN-100 frames carry
 TimeStartup and TimeGps, the UBX frames a full UTC date, so both `host` and `device` time sources can be tried. The
-symlinks make the config independent of the pty numbers.
+symlinks make the config independent of the pty numbers. With `--loop` the passes are stitched into one continuous
+stream (TimeStartup keeps growing, UTC never steps back), as a running receiver and IMU would look; only the position
+jumps back to the start of the recording at each wrap. That is the configuration used for soak runs.
 
 The test suite drives the same path (`tests/test_serial.cpp`): parsers and encoders, the clock mapping, the serial
 input end to end over ptys with the 60 s log at 20× (every frame pushed, the filter aligns and publishes).
