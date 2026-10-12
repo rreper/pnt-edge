@@ -8,7 +8,9 @@ cpp = meson.get_compiler('cpp')
 add_project_arguments(cpp.get_supported_arguments('-Wno-unused-parameter'), language: 'cpp')
 
 # The navigation filter: the Cobra C++ port, pinned to a release tag (subprojects/pntos-cpp.wrap).
-pntos = subproject('pntos-cpp', default_options: ['tests=false', 'apps=false', 'warning_level=0', 'werror=false'])
+# The version check turns a stale checkout (git pull moved the tag, meson does not refetch an existing subproject
+# directory) into one clear error instead of compile failures: fix with `meson subprojects update --reset pntos-cpp`.
+pntos = subproject('pntos-cpp', version: '>=0.2.8', default_options: ['tests=false', 'apps=false', 'warning_level=0', 'werror=false'])
 cobra_dep = pntos.get_variable('cobra_dep')
 thread_dep = dependency('threads')
 

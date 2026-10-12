@@ -28,6 +28,14 @@ python3 -m venv .venv && .venv/bin/pip install meson ninja
 ./build/pnt-edge configs/pnt-edge-replay.json --once --print-status   # 60 s replay, NMEA to 127.0.0.1:10110
 ```
 
+After a `git pull` that moves the pinned Cobra tag, refresh the already-fetched subproject (meson does not do it on
+its own; the build then stops with "Subproject pntos-cpp version is x but >=y required"):
+
+```
+.venv/bin/meson subprojects update --reset pntos-cpp
+.venv/bin/meson setup --reconfigure build
+```
+
 `meson install` installs `pnt-edge`, `/etc/pnt-edge/pnt-edge.json` and the systemd unit.
 
 ## Configuration
