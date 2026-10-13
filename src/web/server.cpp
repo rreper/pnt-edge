@@ -267,6 +267,99 @@ void WebServer::configure(httplib::Server& srv, Surface surface) {
   srv.Post("/api/v1/control/nmea", control("set_nmea", false));      // {"rate_hz": .., "sentences": [...], "udp_targets": [...]}
   srv.Put("/api/v1/config", control("save_config", false));          // the edge config object
 
+  // software updates (docs/WEB_UI.md): upload -> staged and checked; apply -> installed, backup kept, restart queued
+  if (surface == Surface::Maintenance && updater_) {
+    srv.set_payload_max_length(static_cast<std::size_t>(96) << 20);  // a release package is ~10 MB
+    auto writer = [this, guard](const httplib::Request& req, httplib::Response& res, Identity* id) {
+      if (!guard(req, res, id)) return false;
+      if (id->read_only) {
+        send_json(res, {{"error", "not permitted with a read-only token"}}, 403);
+        return false;
+      }
+      return true;
+    };
+    srv.Get("/api/v1/software", [this, guard](const httplib::Request& req, httplib::Response& res) {
+      if (!guard(req, res, nullptr)) return;
+      send_json(res, updater_->state());
+    });
+    srv.Post("/api/v1/software/upload", [this, writer](const httplib::Request& req, httplib::Response& res) {
+      Identity id;
+      if (!writer(req, res, &id)) return;
+      if (!req.has_file("package")) {
+        send_json(res, {{"error", "multipart field 'package' (the release .tar.gz) is missing"}}, 400);
+        return;
+      }
+      const auto f = req.get_file_value("package");
+      const std::string sha = req.has_file("sha256") ? req.get_file_value("sha256").content : "";
+      std::string err;
+      if (!updater_->stage(f.filename, f.content, sha, id.who, &err)) {
+        send_json(res, {{"error", err}}, 400);
+        return;
+      }
+      audit(id.who, req.remote_addr, "software_upload", f.filename + " (" + std::to_string(f.content.size()) + " bytes)");
+      const auto st = updater_->state();
+      const bool ok = st["staged"]["applicable"].get<bool>();
+      hub_.event("UPDATE", f.filename + " staged by " + id.who + (ok ? ": " + st["staged"]["version"].get<std::string>() : ", not applicable: " + st["staged"]["problem"].get<std::string>()));
+      send_json(res, st);
+    });
+    srv.Post("/api/v1/software/apply", [this, writer](const httplib::Request& req, httplib::Response& res) {
+      Identity id;
+      if (!writer(req, res, &id)) return;
+      bool restart = true;
+      if (!req.body.empty()) {
+        try {
+          restart = json::parse(req.body).value("restart", true);
+        } catch (const std::exception&) {
+        }
+      }
+      const auto before = updater_->state();
+      std::string err;
+      if (!updater_->apply(id.who, &err)) {
+        send_json(res, {{"error", err}}, 409);
+        return;
+      }
+      const std::string to = before["staged"]["version"].get<std::string>();
+      audit(id.who, req.remote_addr, "software_apply", to + (restart ? ", restart" : ", no restart"));
+      hub_.event("UPDATE", "installed " + to + " by " + id.who + (restart ? ", restarting" : ", restart pending"));
+      if (restart) hub_.enqueue({"reset", json{{"what", "app"}}, id.who, req.remote_addr});
+      auto st = updater_->state();
+      st["restarting"] = restart;
+      send_json(res, st);
+    });
+    srv.Post("/api/v1/software/rollback", [this, writer](const httplib::Request& req, httplib::Response& res) {
+      Identity id;
+      if (!writer(req, res, &id)) return;
+      bool restart = true;
+      if (!req.body.empty()) {
+        try {
+          restart = json::parse(req.body).value("restart", true);
+        } catch (const std::exception&) {
+        }
+      }
+      const auto before = updater_->state();
+      std::string err;
+      if (!updater_->rollback(id.who, &err)) {
+        send_json(res, {{"error", err}}, 409);
+        return;
+      }
+      const std::string to = before["backup"].is_null() ? "" : before["backup"].value("version", "");
+      audit(id.who, req.remote_addr, "software_rollback", to);
+      hub_.event("UPDATE", "rolled back to " + to + " by " + id.who + (restart ? ", restarting" : ", restart pending"));
+      if (restart) hub_.enqueue({"reset", json{{"what", "app"}}, id.who, req.remote_addr});
+      auto st = updater_->state();
+      st["restarting"] = restart;
+      send_json(res, st);
+    });
+    srv.Post("/api/v1/software/discard", [this, writer](const httplib::Request& req, httplib::Response& res) {
+      Identity id;
+      if (!writer(req, res, &id)) return;
+      std::string err;
+      updater_->discard(&err);
+      audit(id.who, req.remote_addr, "software_discard", "");
+      send_json(res, updater_->state());
+    });
+  }
+
   srv.set_error_handler([](const httplib::Request&, httplib::Response& res) {
     if (res.body.empty()) res.set_content("{\"error\":\"not found\"}", "application/json");
   });

@@ -7,7 +7,7 @@
 | A.3 | `$PPNT` command parser and handlers (STATUS, VER, OUT, RESET, TIME), acknowledgements, audit log | a client can query and reconfigure output over the tactical port |
 | B.1 | Embedded HTTPS + REST + WebSocket, authentication, roles, first-login flow | login works, status pages live |
 | B.2 | Device, filter and system health pages; logs; config editor with validation; LEVERARM / HEADING commands | a maintainer changes a lever arm from the browser and the filter restarts with it |
-| B.3 | Recording management, signed software updates, certificate upload, reboot | update applied from the browser |
+| B.3 (update done) | Recording management, signed software updates, certificate upload, reboot; software update from the browser delivered 2026-10-12 (checksum + execution check, backup, in-place restart, rollback; signing open) | update applied from the browser |
 | C | OS image for the SBC, A/B updates, watchdog, PTP/NTP, HIL rig and soak tests | 72 h soak on the bench with the log player |
 
 Gates: unit tests and the replay smoke test in CI before every push; from A.2 on, a bench run with real serial
@@ -34,6 +34,15 @@ ASPN-23 over LCM output, serial NMEA output. Soak (2026-10-12, 8 h + continuing 
 backwards UTC step (fixed), Cobra retained every solution behind the callback (fixed in v0.2.8), a host clock step after
 suspend/resume left the filter in error for good (the daemon now restarts it, event `CLOCK_STEP`). Option kept open: run the
 filter on `CLOCK_MONOTONIC` and apply the UTC offset only at the outputs, which would make host clock steps invisible.
+
+## Phase B.3, software update delivered (2026-10-12)
+
+Software tab on the maintenance UI: upload the release package with its `.sha256`, staged and checked (tarball,
+contents, checksum, the packaged binary runs here), apply into the install prefix (bin, lib, share; never etc) with a
+backup and a start check of the installed executable, in-place re-exec of the application (works without systemd),
+roll back. Verified against the published v0.1.1 package on an installed tree. `docs/WEB_UI.md`. Releases are now
+relocatable (`$ORIGIN/../lib` rpath) and the version is 0.2.0. Open in B.3: package signatures, recording
+management, certificate upload, reboot.
 
 ## Phase A.3, delivered (2026-10-11): `$PPNT` commands
 

@@ -85,6 +85,12 @@ from 600 s of the full recording; `cell_step.json` steps the alternate by 40 m) 
    $PPNT,OUT,S,5,GGA+HDT*00
    $PPNT,RESET,S,filter*30
    ```
+6. Software tab: upload a release package (`pnt-edge-<tag>-linux-x86_64.tar.gz` and its `.sha256` from the Releases
+   page). It is staged and checked, nothing changes yet. **Apply and restart** installs it, the application
+   re-executes itself and the page asks you to sign in again; the Overview then shows the new version. **Roll back**
+   brings the previous version back the same way. (In the development layout, running `build/pnt-edge`, only the
+   executable and the web files are replaced, and a package whose libraries are not installed is refused with the
+   reason; the installed layout of the binary tarball or `meson install` takes everything.)
    or by datagram: `printf '$PPNT,VER,Q*0A\r\n' | nc -u -w1 <host> 10111`.
 6. Config tab: the live pnt-edge config (editable, saved on Save) and the filter config (read-only).
 7. Fleet access: `curl -H 'Authorization: Bearer <token>' http://<host>:8081/api/v1/solution` once `web.api_token`

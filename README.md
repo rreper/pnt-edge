@@ -13,6 +13,7 @@ error-state EKF, pntOS plugin architecture) running as a service on a single-boa
 - a **tactical surface**: NMEA 0183 output over UDP and TCP (GGA, RMC, VTG, HDT, GST, ZDA, PASHR),
   ASPN-23 over LCM, and a `$PPNT` proprietary NMEA command set (docs/COMMAND_PROTOCOL.md);
 - a **maintenance surface**: a browser UI with username/password authentication for health,
+  software updates from the browser (release package upload, checks, apply with backup and in-place restart, roll back),
   configuration and software maintenance of the application and every connected device (Phase B).
 
 Status: Phase A skeleton. The daemon runs the filter through its push API, takes measurements from an LCM log

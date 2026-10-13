@@ -5,6 +5,7 @@
 #include "edge_config.hpp"
 #include "web/auth.hpp"
 #include "web/hub.hpp"
+#include "web/update.hpp"
 
 #include <atomic>
 #include <memory>
@@ -35,6 +36,8 @@ class WebServer {
   int maintenance_port() const { return maintenance_port_; }
   bool running() const { return running_; }
   auth::Users& users() { return users_; }
+  /// Software updates (maintenance surface): set before start().
+  void set_updater(Updater* u) { updater_ = u; }
 
  private:
   enum class Surface { Tactical, Maintenance };
@@ -54,6 +57,7 @@ class WebServer {
   auth::Users users_;
   std::mutex users_mutex_;  ///< the users file is re-read on every login attempt (set-password while running)
   auth::Sessions sessions_;
+  Updater* updater_ = nullptr;
   std::unique_ptr<httplib::Server> tactical_, maintenance_;
   std::vector<std::thread> threads_;
   std::atomic<bool> running_{false};

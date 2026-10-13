@@ -94,6 +94,7 @@ EdgeConfig edge_config_from_json(const json& j, const std::string& base_dir) {
     c.web.users_file = resolve(base_dir, w.value("users_file", c.web.users_file));
     c.web.api_token = w.value("api_token", "");
     c.web.audit_file = resolve(base_dir, w.value("audit_file", c.web.audit_file));
+    c.web.update_dir = resolve(base_dir, w.value("update_dir", c.web.update_dir));
     c.web.history_seconds = w.value("history_seconds", c.web.history_seconds);
     c.web.log_lines = w.value("log_lines", c.web.log_lines);
   }
@@ -143,7 +144,7 @@ json edge_config_to_json(const EdgeConfig& c) {
               {"status", {{"file", c.status.file}, {"interval_sec", c.status.interval_sec}}},
               {"web", {{"tactical", {{"bind", c.web.tactical.bind}, {"port", c.web.tactical.port}}},
                        {"maintenance", {{"bind", c.web.maintenance.bind}, {"port", c.web.maintenance.port}}},
-                       {"www", c.web.www}, {"users_file", c.web.users_file}, {"api_token", c.web.api_token}, {"audit_file", c.web.audit_file},
+                       {"www", c.web.www}, {"users_file", c.web.users_file}, {"api_token", c.web.api_token}, {"audit_file", c.web.audit_file}, {"update_dir", c.web.update_dir},
                        {"history_seconds", c.web.history_seconds}, {"log_lines", c.web.log_lines}}}};
 }
 

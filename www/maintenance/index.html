@@ -3,7 +3,7 @@
 <link rel="stylesheet" href="/static/app.css"><link rel="stylesheet" href="/static/uPlot.min.css"></head>
 <body>
 <header><h1>PNT maintenance</h1><span id="health" class="badge">starting</span><span id="pace" class="badge hidden"></span>
-<nav id="nav"><a data-tab="overview" class="active">Overview</a><a data-tab="inputs">Inputs</a><a data-tab="solution">Solution</a><a data-tab="integrity">Integrity</a><a data-tab="outputs">Outputs</a><a data-tab="log">Log</a><a data-tab="config">Config</a></nav>
+<nav id="nav"><a data-tab="overview" class="active">Overview</a><a data-tab="inputs">Inputs</a><a data-tab="solution">Solution</a><a data-tab="integrity">Integrity</a><a data-tab="outputs">Outputs</a><a data-tab="log">Log</a><a data-tab="config">Config</a><a data-tab="software">Software</a></nav>
 <span class="spacer"></span><span id="link" class="muted">connecting…</span><span id="who" class="muted"></span><form method="post" action="/logout" style="margin:0"><button class="quiet">Sign out</button></form></header>
 <main>
 <section id="tab-overview" class="grid">
@@ -42,6 +42,16 @@
 <section id="tab-config" class="hidden">
   <div class="panel"><h2>pnt-edge config</h2><textarea id="cfg-edge"></textarea><p><button id="save-edge">Save</button> <span class="muted">Written to the config file; NMEA settings apply immediately, the rest on restart.</span> <span id="cfg-result" class="muted"></span></p></div>
   <div class="panel"><h2>Filter config (read-only)</h2><textarea id="cfg-filter" readonly></textarea></div>
+</section>
+<section id="tab-software" class="hidden">
+  <div class="panel"><h2>Running</h2><div class="kv"><dt>pnt-edge</dt><dd id="s-version">—</dd><dt>Cobra</dt><dd id="s-cobra">—</dd><dt>Executable</dt><dd id="s-exe">—</dd><dt>Web files</dt><dd id="s-www">—</dd><dt>Restart pending</dt><dd id="s-pending">—</dd></div></div>
+  <div class="panel"><h2>Install an update</h2>
+  <p class="muted">Upload the release package <code>pnt-edge-&lt;tag&gt;-linux-&lt;arch&gt;.tar.gz</code> from the Releases page and, to verify it, its <code>.sha256</code> file. The package is unpacked and its binary is run once here; nothing changes until you apply.</p>
+  <div class="row"><label>Package<input type="file" id="s-file" accept=".gz,.tgz,application/gzip" style="width:auto"></label><label>Checksum file (optional)<input type="file" id="s-sha" accept=".sha256,.txt" style="width:auto"></label><button id="s-upload">Upload</button> <span id="s-upload-result" class="muted"></span></div>
+  <div id="s-staged" class="hidden" style="margin-top:12px"><h3>Staged</h3><div class="kv"><dt>File</dt><dd id="s-st-file">—</dd><dt>Size</dt><dd id="s-st-size">—</dd><dt>Reports</dt><dd id="s-st-version">—</dd><dt>sha256</dt><dd id="s-st-sha">—</dd><dt>Check</dt><dd id="s-st-check">—</dd><dt>Uploaded</dt><dd id="s-st-by">—</dd></div>
+  <p><button id="s-apply" class="danger">Apply and restart</button> <button id="s-apply-only">Apply without restart</button> <button id="s-discard" class="quiet">Discard</button> <span id="s-result" class="muted"></span></p></div></div>
+  <div class="panel" id="s-backup-panel"><h2>Previous version</h2><div class="kv"><dt>Version</dt><dd id="s-prev">—</dd><dt>Replaced</dt><dd id="s-prev-t">—</dd><dt>By</dt><dd id="s-prev-by">—</dd></div><p><button id="s-rollback" class="danger">Roll back and restart</button> <span id="s-rb-result" class="muted"></span></p></div>
+  <div class="panel"><h2>History</h2><table><thead><tr><th>Time (UTC)</th><th>Action</th><th>Who</th><th>From</th><th>To</th><th>Result</th></tr></thead><tbody id="s-history"></tbody></table></div>
 </section>
 </main>
 <script src="/static/uPlot.iife.min.js"></script>

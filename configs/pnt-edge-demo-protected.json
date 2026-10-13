@@ -6,6 +6,6 @@
   "input": { "type": "lcm_log", "path": "../subprojects/pntos-cpp/testdata/example_60s.log", "speed": 1, "loop": true },
   "nmea": { "udp_targets": [], "tcp_port": 10110, "command_udp_port": 10111, "bind_address": "0.0.0.0", "rate_hz": 1.0 },
   "web": { "tactical": { "bind": "0.0.0.0", "port": 8080 }, "maintenance": { "bind": "0.0.0.0", "port": 8081 },
-           "users_file": "/tmp/pnt-edge/users.json", "audit_file": "/tmp/pnt-edge/audit.log" },
+           "users_file": "/tmp/pnt-edge/users.json", "audit_file": "/tmp/pnt-edge/audit.log", "update_dir": "/tmp/pnt-edge/updates" },
   "status": { "file": "/tmp/pnt-edge/status.json", "interval_sec": 1.0 }
 }

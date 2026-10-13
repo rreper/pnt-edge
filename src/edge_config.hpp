@@ -70,6 +70,7 @@ struct WebConfig {
   std::string users_file = "/etc/pnt-edge/users.json";
   std::string api_token;                          ///< empty: no token access
   std::string audit_file = "/var/log/pnt-edge/audit.log";
+  std::string update_dir = "/var/lib/pnt-edge/updates";  ///< staged packages, backup of the replaced version, history
   double history_seconds = 7200;                  ///< solution history kept in memory
   int log_lines = 2000;                           ///< log lines kept in memory
 };

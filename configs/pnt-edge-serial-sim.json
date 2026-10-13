@@ -17,5 +17,5 @@
            "utc_offset_sec": 0, "utc_from_receiver": true, "sentences": ["GGA", "RMC", "VTG", "HDT", "GST", "ZDA", "PASHR"]},
   "status": {"file": "/tmp/pnt-edge/status-serial.json", "interval_sec": 1},
   "web": {"tactical": {"bind": "0.0.0.0", "port": 8080}, "maintenance": {"bind": "0.0.0.0", "port": 8081}, "www": "../www",
-          "users_file": "/tmp/pnt-edge/users.json", "audit_file": "/tmp/pnt-edge/audit.log"}
+          "users_file": "/tmp/pnt-edge/users.json", "audit_file": "/tmp/pnt-edge/audit.log", "update_dir": "/tmp/pnt-edge/updates"}
 }

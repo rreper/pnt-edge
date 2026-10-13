@@ -2,6 +2,8 @@
 #include "web/auth.hpp"
 #include "web/hub.hpp"
 #include "web/server.hpp"
+#include "web/update.hpp"
+#include "fake_package.hpp"
 
 #include <httplib.h>
 #include <gtest/gtest.h>
@@ -182,5 +184,89 @@ TEST(Web, SurfacesApiLoginTokenAndControl) {
   });
   EXPECT_NE(got.find("event: update"), std::string::npos);
   EXPECT_NE(got.find("\"health\":\"ok\""), std::string::npos);
+  web.stop();
+}
+
+TEST(Web, SoftwareUpdateRoutes) {
+  Hub hub(100, 50);
+  hub.set_status(json{{"health", "ok"}});
+  WebConfig cfg;
+  cfg.tactical.port = -1;
+  cfg.maintenance.port = -1;
+  cfg.users_file = tmpdir() + "/users_update.json";
+  cfg.api_token = "fleet-secret";
+  cfg.audit_file = tmpdir() + "/audit_update.log";
+  {
+    auth::Users u;
+    u.set_password("admin", "correct horse", 500);
+    ASSERT_TRUE(u.save(cfg.users_file));
+  }
+  const std::filesystem::path root = std::filesystem::path(tmpdir()) / "update-web";
+  std::filesystem::remove_all(root);
+  Updater updater(fake_package::install(root, "0.1.0"));
+  const std::string www = std::string(std::getenv("PNT_EDGE_SRCDIR") ? std::getenv("PNT_EDGE_SRCDIR") : "..") + "/www";
+  WebServer web(hub, cfg, www);
+  web.set_updater(&updater);
+  web.start();
+  httplib::Client maint("127.0.0.1", web.maintenance_port()), tac("127.0.0.1", web.tactical_port());
+  auto good = maint.Post("/login", "{\"user\":\"admin\",\"password\":\"correct horse\"}", "application/json");
+  ASSERT_TRUE(good);
+  ASSERT_EQ(good->status, 200);
+  const std::string cookie = good->get_header_value("Set-Cookie").substr(0, good->get_header_value("Set-Cookie").find(';'));
+  httplib::Headers hdr{{"Cookie", cookie}}, tok{{"Authorization", "Bearer fleet-secret"}};
+
+  auto s0 = maint.Get("/api/v1/software", hdr);
+  ASSERT_TRUE(s0);
+  ASSERT_EQ(s0->status, 200);
+  EXPECT_EQ(json::parse(s0->body)["running"]["version"], "0.1.0");
+  // the tactical surface has no software routes at all
+  auto t0 = tac.Get("/api/v1/software");
+  ASSERT_TRUE(t0);
+  EXPECT_EQ(t0->status, 404);
+
+  const std::string pkg = fake_package::make(root, "9.9.9");
+  ASSERT_FALSE(pkg.empty());
+  httplib::MultipartFormDataItems items{{"package", pkg, "pnt-edge-v9.9.9-linux-x86_64.tar.gz", "application/gzip"},
+                                        {"sha256", Updater::sha256_hex(pkg) + "  pnt-edge-v9.9.9-linux-x86_64.tar.gz\n", "pnt-edge.sha256", "text/plain"}};
+  // the read-only token may look but not upload
+  auto denied = maint.Post("/api/v1/software/upload", tok, items);
+  ASSERT_TRUE(denied);
+  EXPECT_EQ(denied->status, 403);
+  auto up = maint.Post("/api/v1/software/upload", hdr, items);
+  ASSERT_TRUE(up);
+  ASSERT_EQ(up->status, 200) << up->body;
+  auto st = json::parse(up->body);
+  EXPECT_TRUE(st["staged"]["applicable"].get<bool>()) << st["staged"]["problem"];
+  EXPECT_EQ(st["staged"]["version"], "pnt-edge 9.9.9 (Cobra 0.2.8)");
+  EXPECT_EQ(st["staged"]["uploaded_by"], "user:admin");
+  // apply without restart: installed, backup kept, no command queued
+  auto ap = maint.Post("/api/v1/software/apply", hdr, "{\"restart\":false}", "application/json");
+  ASSERT_TRUE(ap);
+  ASSERT_EQ(ap->status, 200) << ap->body;
+  st = json::parse(ap->body);
+  EXPECT_TRUE(st["restart_pending"].get<bool>());
+  EXPECT_EQ(st["backup"]["version"], "0.1.0");
+  EXPECT_FALSE(hub.next_command());
+  std::string out;
+  run_command({root / "install" / "pnt-edge"}, &out);
+  EXPECT_EQ(out, "pnt-edge 9.9.9 (Cobra 0.2.8)\n");
+  // nothing staged any more
+  auto ap2 = maint.Post("/api/v1/software/apply", hdr, "{}", "application/json");
+  ASSERT_TRUE(ap2);
+  EXPECT_EQ(ap2->status, 409);
+  // roll back with the default restart: the app restart is queued for the main loop
+  auto rb = maint.Post("/api/v1/software/rollback", hdr, "", "application/json");
+  ASSERT_TRUE(rb);
+  ASSERT_EQ(rb->status, 200) << rb->body;
+  run_command({root / "install" / "pnt-edge"}, &out);
+  EXPECT_EQ(out, "pnt-edge 0.1.0 (Cobra 0.2.8)\n");
+  auto cmd = hub.next_command();
+  ASSERT_TRUE(cmd);
+  EXPECT_EQ(cmd->kind, "reset");
+  EXPECT_EQ(cmd->args["what"], "app");
+  // events and audit carry it
+  bool seen = false;
+  for (const auto& e : hub.events(20)) seen |= e["kind"] == "UPDATE";
+  EXPECT_TRUE(seen);
   web.stop();
 }

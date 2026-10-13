@@ -68,8 +68,43 @@ same queue):
 | `POST /api/v1/control/heading` | `{"deg", "sigma_deg"}` | maintenance | written to the filter config's manual-heading alignment; effective on the next filter reset |
 | `POST /api/v1/control/leverarm` | `{"label", "x", "y", "z"}` | maintenance | written to the filter config's processor of that label; effective on the next filter reset |
 | `PUT /api/v1/config` | the edge config object | maintenance | validated, saved; NMEA changes applied, the rest on restart |
+| `GET /api/v1/software` | | maintenance | running version, layout, staged package, backup, restart_pending, history |
+| `POST /api/v1/software/upload` | multipart: `package` (the release .tar.gz), optional `sha256` (its .sha256 file) | maintenance, not the read-only token | stages and checks the package (see Software updates) |
+| `POST /api/v1/software/apply` | `{"restart": true}` | maintenance | installs the staged package, keeps a backup, queues the application restart |
+| `POST /api/v1/software/rollback` | `{"restart": true}` | maintenance | puts the backup back, queues the restart |
+| `POST /api/v1/software/discard` | | maintenance | drops the staged package |
 
 Errors: 400 (bad JSON), 401 (no session/token), 403 (not permitted on this surface or read-only token).
+
+## Software updates
+
+The Software tab installs a release package from the browser (roadmap B.3). The package is the
+`pnt-edge-<tag>-linux-<arch>.tar.gz` that every tagged release carries (the `meson install` tree: `bin/`, `lib/`,
+`share/pnt-edge/www`, `share/pntos-cobra`, `etc/`), uploaded together with its `.sha256` file.
+
+1. **Upload** stages the package under `web.update_dir` and checks it: a readable tarball, `bin/pnt-edge` present,
+   the sha256 against the checksum file when one was given, and the packaged binary is run once with `--version`
+   (with the libraries it brings) to prove it executes on this machine. Nothing changes yet; a package that fails a
+   check shows why and cannot be applied.
+2. **Apply** installs it. Installed layout (`<prefix>/bin/pnt-edge`, the appliance): every file under the package's
+   `bin/`, `lib/` and `share/` goes to the same place under the prefix, the www directory is swapped whole,
+   `etc/` (the operator's configuration) and `lib/systemd/` are never touched. Development layout (`build/pnt-edge`):
+   only the executable, `pnt-edge-serial-sim` and the www directory. Every replaced file is copied to
+   `update_dir/backup` first, files the update added are noted, and the installed executable is run once in place:
+   if it does not start there, the backup is put back at once and the apply reports it. Then the application
+   restarts: it re-executes itself in place (same PID, works in Docker and in a shell; under systemd as well), so
+   sessions end and you sign in again.
+3. **Roll back** restores the backup (one version deep) and restarts.
+
+Everything is audited (`software_upload`, `software_apply`, `software_rollback`) and appears on the timeline as
+`UPDATE` events; `update_dir/history.json` keeps the last 50 actions across restarts. A release older than 0.2.0
+can be installed too (it has no `--version`; its version is taken from the file name), but its own UI has no
+Software tab, so coming back from it means `rollback` by hand: copy `update_dir/backup/files/*` over the prefix.
+
+Requirements: `tar` on the appliance; the prefix (`bin/`, `lib/`, `share/pnt-edge`) writable by the service user,
+i.e. install the appliance under a prefix owned by `pnt-edge` (`/opt/pnt-edge`, the executables carry an
+`$ORIGIN/../lib` rpath so any prefix works) or let the unit run as root. Packages are verified by checksum and by
+execution, not yet by signature; signed packages are the next step of B.3.
 
 ## What the maintenance pages show
 

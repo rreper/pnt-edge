@@ -14,6 +14,7 @@
 #include "status.hpp"
 #include "web/hub.hpp"
 #include "web/server.hpp"
+#include "web/update.hpp"
 #ifdef PNT_EDGE_HAS_INTEGRITY
 #include <cobra_integrity/register.hpp>
 #endif
@@ -174,6 +175,17 @@ int main(int argc, char** argv) {
 #ifdef PNT_EDGE_HAS_INTEGRITY
   cobra_integrity::register_plugins();  // makes "orchestration": "protected" available to the filter config
 #endif
+  if (argc >= 2 && std::string(argv[1]) == "--version") {  // also run by the updater on a staged package
+    std::cout << "pnt-edge " PNT_EDGE_VERSION " (Cobra " << cobra_version() << ")\n";
+    return 0;
+  }
+  // where this executable lives, taken before any update can replace it (/proc/self/exe then reads "(deleted)")
+  std::string exe_path;
+  {
+    std::error_code ec;
+    auto p = std::filesystem::canonical("/proc/self/exe", ec);
+    exe_path = ec ? std::string(argv[0]) : p.string();
+  }
   if (argc < 2 || argv[1][0] == '-') {  // the config path comes first; "pnt-edge --set-password x" is the usual slip
     std::cerr << "usage: pnt-edge config.json [--input-log file] [--once] [--print-status]\n"
                  "       pnt-edge config.json --set-password <user>\n";
@@ -228,8 +240,10 @@ int main(int argc, char** argv) {
     };
     apply_sentences();
 
-    // web surfaces
+    // web surfaces, with software updates on the maintenance one
+    edge::Updater updater({exe_path, www_dir(cfg), cfg.web.update_dir, PNT_EDGE_VERSION, cobra_version()});
     edge::WebServer web(hub, cfg.web, www_dir(cfg));
+    web.set_updater(&updater);
     web.start();
 
     auto rt = start_runtime(cfg, hub, nopt);
@@ -410,6 +424,15 @@ int main(int argc, char** argv) {
     web.stop();
     pntos::cobra::utils::set_log_sink({});
     std::cerr << "pnt-edge: stopped; " << rt->status.solutions << " solutions, " << rt->out->sentences_sent() << " NMEA sentences\n";
+    if (g_exit_code == 3) {
+      // application restart (maintenance UI, software update): re-execute in place so it also works without a
+      // service manager (Docker, a shell); the same path now holds the new executable after an update
+      std::cerr << "pnt-edge: restarting " << exe_path << "\n";
+      rt.reset();  // closes the NMEA listener and the UDP sockets, otherwise the new image cannot bind them
+      for (int fd = 3; fd < 1024; ++fd) ::close(fd);  // nothing else may leak into the new image either
+      ::execv(exe_path.c_str(), argv);
+      std::cerr << "pnt-edge: exec failed: " << std::strerror(errno) << "; exiting with 3 for the service manager\n";
+    }
     return g_exit_code ? g_exit_code.load() : code;
   } catch (const std::exception& e) {
     std::cerr << "pnt-edge: " << e.what() << "\n";

@@ -52,8 +52,39 @@ function refresh() {
   }
   if (tab === 'outputs') { $('n-sent').textContent = status.nmea_sentences; $('n-tcp').textContent = status.tcp_clients; getJson('/api/v1/config').then((c) => { const n = c.edge.nmea || {}; $('n-udp').textContent = (n.udp_targets || []).join(', ') || 'none'; $('n-rate').textContent = n.rate_hz + ' Hz'; $('n-sentences').textContent = (n.sentences || []).join(' ');
       if (document.activeElement.id !== 'f-rate') $('f-rate').value = n.rate_hz; if (document.activeElement.id !== 'f-sentences') $('f-sentences').value = (n.sentences || []).join(' '); if (document.activeElement.id !== 'f-udp') $('f-udp').value = (n.udp_targets || []).join(' '); }).catch(() => {}); }
+  if (tab === 'software' && Date.now() - swLast > 3000) loadSoftware().catch(() => {});
   if (tab === 'log') getJson('/api/v1/log?n=400&level=' + $('log-level').value).then((lines) => { const el = $('log'); const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 20; el.innerHTML = lines.map((l) => `<div class="${l.level}">${fmt.time(l.t)} [${l.source}] [${l.level}] ${l.message.replace(/</g, '&lt;')}</div>`).join(''); if (atBottom) el.scrollTop = el.scrollHeight; }).catch(() => {});
 }
+// software updates
+let swLast = 0, swRestarting = false;
+const esc = (s) => String(s ?? '').replace(/</g, '&lt;');
+function showSoftware(s) {
+  $('s-version').textContent = s.running.version; $('s-cobra').textContent = s.running.cobra; $('s-exe').textContent = s.running.executable; $('s-www').textContent = s.running.www;
+  $('s-pending').textContent = s.restart_pending ? 'yes, restart the application to run the installed version' : 'no';
+  const p = s.staged; $('s-staged').classList.toggle('hidden', !p);
+  if (p) { $('s-st-file').textContent = p.file; $('s-st-size').textContent = (p.size / 1e6).toFixed(1) + ' MB'; $('s-st-version').textContent = p.version || '—';
+    $('s-st-sha').textContent = p.sha256.slice(0, 16) + '… ' + (p.sha256_expected ? (p.sha256_expected === p.sha256 ? '(matches the checksum file)' : '(DOES NOT MATCH the checksum file)') : '(no checksum file given)');
+    $('s-st-check').innerHTML = p.applicable ? '<span class="badge ok">ready to apply</span>' : '<span class="badge bad">not applicable</span> ' + esc(p.problem);
+    $('s-st-by').textContent = fmt.time(p.uploaded_t) + ' by ' + (p.uploaded_by || '').replace('user:', ''); $('s-apply').disabled = $('s-apply-only').disabled = !p.applicable; }
+  const b = s.backup; $('s-backup-panel').style.display = b ? '' : 'none';
+  if (b) { $('s-prev').textContent = b.version + (b.cobra ? ' (Cobra ' + b.cobra + ')' : ''); $('s-prev-t').textContent = fmt.time(b.t); $('s-prev-by').textContent = (b.by || '').replace('user:', ''); }
+  $('s-history').innerHTML = (s.history || []).slice().reverse().map((h) => `<tr><td>${fmt.time(h.t)}</td><td>${esc(h.action)}</td><td>${esc((h.who || '').replace('user:', ''))}</td><td>${esc(h.from)}</td><td>${esc(h.to)}</td><td>${esc(h.result)}</td></tr>`).join('');
+}
+async function loadSoftware() { swLast = Date.now(); showSoftware(await getJson('/api/v1/software')); }
+document.querySelector('#nav a[data-tab=software]').addEventListener('click', () => loadSoftware().catch((e) => { $('s-result').textContent = e.message; }));
+$('s-upload').onclick = async () => {
+  const f = $('s-file').files[0]; if (!f) { $('s-upload-result').textContent = 'choose the package file first'; return; }
+  const fd = new FormData(); fd.append('package', f, f.name); if ($('s-sha').files[0]) fd.append('sha256', $('s-sha').files[0], $('s-sha').files[0].name);
+  $('s-upload-result').textContent = 'uploading ' + (f.size / 1e6).toFixed(1) + ' MB…';
+  try { const r = await fetch('/api/v1/software/upload', { method: 'POST', credentials: 'same-origin', body: fd }); const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || r.status); showSoftware(j); $('s-upload-result').textContent = j.staged && j.staged.applicable ? 'staged, ready to apply' : 'staged, but not applicable'; }
+  catch (e) { $('s-upload-result').textContent = 'failed: ' + e.message; }
+};
+const swAction = (path, body, el, msg) => post(path, body).then((j) => { showSoftware(j); if (j.restarting) { swRestarting = true; el.textContent = msg + ' — restarting, the page reconnects and asks you to sign in again'; } else el.textContent = msg; }).catch((e) => { el.textContent = 'failed: ' + e.message; });
+$('s-apply').onclick = () => { if (confirm('Install the staged package and restart the application now?')) swAction('/api/v1/software/apply', { restart: true }, $('s-result'), 'installed'); };
+$('s-apply-only').onclick = () => { if (confirm('Install the staged package? The running process keeps the old version until the next restart.')) swAction('/api/v1/software/apply', { restart: false }, $('s-result'), 'installed, restart pending'); };
+$('s-discard').onclick = () => swAction('/api/v1/software/discard', {}, $('s-result'), 'discarded');
+$('s-rollback').onclick = () => { if (confirm('Put the previous version back and restart the application now?')) swAction('/api/v1/software/rollback', { restart: true }, $('s-rb-result'), 'rolled back'); };
 let cfgLoaded = false;
 async function loadConfig() { const c = await getJson('/api/v1/config'); if (document.activeElement.id !== 'cfg-edge') $('cfg-edge').value = JSON.stringify(c.edge, null, 2); $('cfg-filter').value = JSON.stringify(c.filter, null, 2); cfgLoaded = true; }
 document.querySelector('#nav a[data-tab=config]').addEventListener('click', () => { if (!cfgLoaded) loadConfig().catch((e) => { $('cfg-result').textContent = e.message; }); });
