@@ -249,6 +249,56 @@ TEST(Ubx, NavPvtRoundTripValsetAndResync) {
 
 // ----------------------------------------------------------------------------- clock mapping
 
+TEST(Merger, WaitsForALaggingPeerDropsLateReleasesStalled) {
+  // two devices: IMU (0) at 100 Hz, GNSS (1) at 1 Hz; hold 50 ms, max hold 1 s
+  const std::int64_t ms = 1'000'000;
+  Merger m(2, 50 * ms, 1000 * ms);
+  auto item = [](std::int64_t tov_ms, std::int64_t arrival_ms, int src) { return MergeItem{tov_ms * 1'000'000, arrival_ms * 1'000'000, src, nullptr, src ? "gnss" : "imu"}; };
+  auto ordered = [](const std::vector<MergeItem>& v) { for (std::size_t i = 1; i < v.size(); ++i) if (v[i - 1].tov_ns > v[i].tov_ns) return false; return true; };
+  // IMU frames up to t=200 ms, all arrived promptly
+  for (int i = 0; i <= 20; ++i) EXPECT_TRUE(m.add(item(i * 10, i * 10 + 2, 0)));
+  // a fix at t=1000 arrives at 1002 while the IMU thread is starved: with a plain hold it would be pushed at 1052
+  // and the filter would jump ahead of its inertial; the merger keeps it until the IMU has passed it
+  EXPECT_TRUE(m.add(item(1000, 1002, 1)));
+  auto out = m.release(300 * ms);
+  EXPECT_EQ(out.size(), 21u);  // the IMU frames: the receiver's next message cannot be before 1000 - 50
+  EXPECT_TRUE(m.release(1100 * ms).empty());  // the fix: hold passed, IMU live and at 200: held
+  EXPECT_GT(m.held_for_peer(), 0u);
+  // the IMU catches up in one burst (frames 210..1050 arrive together at 1150)
+  for (int i = 21; i <= 105; ++i) EXPECT_TRUE(m.add(item(i * 10, 1150, 0)));
+  out = m.release(1210 * ms);
+  // one fix seen so far, its interval unknown: IMU frames beyond 1000 - 50 wait for the receiver (at most max_hold)
+  EXPECT_EQ(out.size(), 75u);
+  EXPECT_TRUE(ordered(out));
+  EXPECT_EQ(out.back().tov_ns, 950 * ms);
+  // the second fix teaches the interval (1 s): everything up to 2000 + 1000 - 50 may flow; the fix at 1000 goes
+  // out between the IMU frames at 1000 and 1010 because the IMU (1050) is 40 ms past it
+  EXPECT_TRUE(m.add(item(2000, 2002, 1)));
+  out = m.release(2060 * ms);
+  ASSERT_EQ(out.size(), 11u);
+  EXPECT_TRUE(ordered(out));
+  std::size_t fix = 0;
+  for (std::size_t i = 0; i < out.size(); ++i) if (out[i].source == 1) fix = i;
+  EXPECT_EQ(out[fix].tov_ns, 1000 * ms);
+  EXPECT_GE(out[fix - 1].tov_ns, 990 * ms);  // right between the IMU frames around it (equal times in either order)
+  EXPECT_LE(out[fix + 1].tov_ns, 1010 * ms);
+  EXPECT_EQ(m.pending(), 1u);  // the fix at 2000 waits for the IMU, which is at 1050
+  // a frame that shows up behind the released timeline is dropped and counted, never pushed out of order
+  EXPECT_FALSE(m.add(item(900, 2100, 0)));
+  EXPECT_EQ(m.late_dropped(), 1u);
+  // the IMU goes silent for good: the fix is held while the IMU still counts as live, then released after max_hold
+  EXPECT_TRUE(m.release(2300 * ms).empty());
+  out = m.release(3200 * ms);
+  ASSERT_EQ(out.size(), 1u);
+  EXPECT_EQ(out[0].source, 1);
+  // shutdown flushes whatever is left, in order
+  EXPECT_TRUE(m.add(item(4000, 4001, 1)));
+  EXPECT_TRUE(m.add(item(3990, 4001, 0)));
+  out = m.release(4001 * ms, true);
+  ASSERT_EQ(out.size(), 2u);
+  EXPECT_EQ(out[0].tov_ns, 3990 * ms);
+}
+
 TEST(HostClockMonitor, ReportsOnlyRealSteps) {
   HostClockMonitor m(1.0);
   const std::int64_t s = 1'000'000'000;

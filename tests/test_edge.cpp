@@ -120,3 +120,16 @@ TEST(Edge, IntegrityAbsentWithoutThePlugin) {
   EXPECT_EQ(edge::fix_quality_for(s, 1), 1);
   f.stop();
 }
+
+TEST(Status, WatchdogDue) {
+  // off, never
+  EXPECT_FALSE(edge::watchdog_due(0, 100, 10, 200, 100));
+  // before the first solution the filter is aligning: not a watchdog case
+  EXPECT_FALSE(edge::watchdog_due(20, 100, 0, 200, 100));
+  // solutions flowing
+  EXPECT_FALSE(edge::watchdog_due(20, 1.5, 10, 200, 100));
+  // silent, but nothing arrives either (devices unplugged): the device health says so, no restart
+  EXPECT_FALSE(edge::watchdog_due(20, 60, 10, 200, 200));
+  // silent while measurements arrive: restart
+  EXPECT_TRUE(edge::watchdog_due(20, 21, 10, 201, 200));
+}

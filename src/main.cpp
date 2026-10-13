@@ -257,6 +257,7 @@ int main(int argc, char** argv) {
     auto next_status = std::chrono::steady_clock::now();
     std::string last_pace, last_excluded, last_health;
     edge::serial::HostClockMonitor host_clock;
+    std::uint64_t pushed_at_last_status = 0;
     int host_clock_steps = 0;
     std::optional<double> last_host_clock_step_s;
     while (!g_stop) {
@@ -394,6 +395,18 @@ int main(int argc, char** argv) {
       snap.host_clock_steps = host_clock_steps;
       snap.last_host_clock_step_s = last_host_clock_step_s;
       snap.filter_error = rt->filter->error_logged();
+      if (edge::watchdog_due(cfg.solution_watchdog_s, snap.last_solution_age_sec, snap.solutions, snap.input.pushed, pushed_at_last_status)) {
+        char buf[32];
+        std::snprintf(buf, sizeof buf, "%.0f", snap.last_solution_age_sec);
+        say("WARN", std::string("no solution for ") + buf + " s while measurements keep arriving (filter error: " + (snap.filter_error ? "yes" : "no") + "): restarting the filter");
+        hub.event("WATCHDOG", std::string("no solution for ") + buf + " s with measurements arriving, filter restarted");
+        stop_runtime(*rt);
+        rt.reset();
+        rt = start_runtime(cfg, hub, nopt);
+        pushed_at_last_status = 0;
+        continue;
+      }
+      pushed_at_last_status = snap.input.pushed;
       snap.gating = edge::gating_from_registry(*rt->filter);
       snap.integrity = edge::integrity_from_registry(*rt->filter);
       const auto j = edge::status_to_json(snap);

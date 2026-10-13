@@ -74,7 +74,14 @@ Everything the filter sees must be on one timeline. By default that is the host'
   error for good: found when the soak laptop slept for 7.4 h. With `lcm_udp` / `lcm_log` inputs the step is only
   logged, their times do not depend on the host clock.
 
-Message times reach the filter in order through the reorder buffer (`reorder_ms`).
+Message times reach the filter in one order. Each device thread stamps and enqueues on its own schedule; the
+merger releases the earliest pending message only when it has waited `reorder_ms` (jitter within a device) and every
+other live device has already delivered something at or beyond its time, so a position fix never overtakes the IMU
+frames that precede it even when a thread is starved for hundreds of milliseconds (found in the soak under CPU load:
+the fix got ahead, Cobra could not propagate the inertial to it and stayed in error for good). A device that falls
+`reorder_max_ms` (1 s) behind no longer holds the others; a message that arrives behind the released timeline is
+dropped and counted (`late` in the device status). Should the filter still fall silent for `solution_watchdog_s`
+(20 s) while measurements keep arriving, the daemon restarts it (event `WATCHDOG`).
 
 ## Health
 

@@ -6,6 +6,7 @@
 
 #include "../inputs.hpp"
 #include "clock.hpp"
+#include "merge.hpp"
 #include "nmea_gnss.hpp"
 #include "port.hpp"
 #include "ubx.hpp"
@@ -45,6 +46,7 @@ class SerialInput final : public Input {
     std::ofstream record;
     // health, guarded by the input's mutex_
     std::string state = "closed";     ///< closed | opening | open | streaming | no data | lost
+    std::uint64_t late = 0;           ///< messages dropped because they arrived behind the released timeline
     std::string detail;
     std::uint64_t bytes = 0, frames = 0, errors = 0;
     std::int64_t last_frame_host_ns = 0;
@@ -55,17 +57,11 @@ class SerialInput final : public Input {
     std::optional<std::int64_t> clock_offset_ns;
     std::optional<std::int64_t> utc_correction_ns;
   };
-  struct Pending {
-    std::int64_t tov_ns, arrival_ns;
-    std::shared_ptr<pntos::api::AspnBase> message;
-    std::string channel;
-    bool operator>(const Pending& o) const { return tov_ns > o.tov_ns; }
-  };
-
   void run_device(Device& d);
   void handle_bytes(Device& d, const std::uint8_t* data, std::size_t n, std::int64_t arrival_ns);
   std::int64_t stamp(Device& d, std::optional<std::int64_t> absolute_ns, std::optional<std::int64_t> relative_ns, std::int64_t arrival_ns);
   void enqueue(const Device& d, std::int64_t tov_ns, std::int64_t arrival_ns, std::shared_ptr<pntos::api::AspnBase> m, const std::string& channel);
+  int device_index(const Device& d) const;
   void pusher();
   void note_frame(Device& d, std::int64_t arrival_ns);
 
@@ -74,7 +70,7 @@ class SerialInput final : public Input {
   std::vector<std::unique_ptr<Device>> devices_;
   // per-device parsers live on the device threads
   std::thread pusher_;
-  std::priority_queue<Pending, std::vector<Pending>, std::greater<Pending>> queue_;
+  std::unique_ptr<serial::Merger> merger_;  ///< under queue_mutex_
   std::mutex queue_mutex_;
   std::condition_variable queue_cv_;
   std::atomic<bool> stop_{false};

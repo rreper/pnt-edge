@@ -87,6 +87,14 @@ SerialInput::SerialInput(pntos::cobra::Filter& filter, const InputConfig& config
     if (d->cfg.name.empty()) d->cfg.name = d->cfg.driver;
     devices_.push_back(std::move(d));
   }
+  merger_ = std::make_unique<serial::Merger>(static_cast<int>(devices_.size()), static_cast<std::int64_t>(cfg_.reorder_ms * 1e6),
+                                             static_cast<std::int64_t>(cfg_.reorder_max_ms * 1e6));
+}
+
+int SerialInput::device_index(const Device& d) const {
+  for (std::size_t i = 0; i < devices_.size(); ++i)
+    if (devices_[i].get() == &d) return static_cast<int>(i);
+  return 0;
 }
 
 SerialInput::~SerialInput() { stop(); }
@@ -301,37 +309,38 @@ void SerialInput::note_frame(Device& d, std::int64_t arrival_ns) {
   }
 }
 
-void SerialInput::enqueue(const Device&, std::int64_t tov_ns, std::int64_t arrival_ns, std::shared_ptr<pntos::api::AspnBase> m, const std::string& channel) {
+void SerialInput::enqueue(const Device& d, std::int64_t tov_ns, std::int64_t arrival_ns, std::shared_ptr<pntos::api::AspnBase> m, const std::string& channel) {
+  bool accepted;
   {
     std::lock_guard lk(queue_mutex_);
-    queue_.push(Pending{tov_ns, arrival_ns, std::move(m), channel});
+    accepted = merger_->add(serial::MergeItem{tov_ns, arrival_ns, device_index(d), std::move(m), channel});
+  }
+  if (!accepted) {
+    std::lock_guard lk(mutex_);
+    ++const_cast<Device&>(d).late;
   }
   queue_cv_.notify_one();
 }
 
 void SerialInput::pusher() {
-  const std::int64_t hold = static_cast<std::int64_t>(cfg_.reorder_ms * 1e6);
   std::unique_lock lk(queue_mutex_);
   while (!stop_) {
     queue_cv_.wait_for(lk, std::chrono::milliseconds(5));
-    const std::int64_t now = serial::host_now_ns();
-    while (!queue_.empty() && (stop_ || now - queue_.top().arrival_ns >= hold)) {
-      Pending p = queue_.top();
-      queue_.pop();
-      lk.unlock();
+    auto ready = merger_->release(serial::host_now_ns(), stop_);
+    if (ready.empty()) continue;
+    lk.unlock();
+    for (auto& p : ready) {
       filter_.push(pntos::api::Message(p.message, p.channel));
       count(p.channel, p.tov_ns);
-      lk.lock();
     }
+    lk.lock();
   }
   // drain in order on stop so a test that wrote everything sees it all
-  while (!queue_.empty()) {
-    Pending p = queue_.top();
-    queue_.pop();
-    lk.unlock();
+  auto rest = merger_->release(serial::host_now_ns(), true);
+  lk.unlock();
+  for (auto& p : rest) {
     filter_.push(pntos::api::Message(p.message, p.channel));
     count(p.channel, p.tov_ns);
-    lk.lock();
   }
 }
 
@@ -343,7 +352,7 @@ nlohmann::json SerialInput::devices() const {
   const std::int64_t now = serial::host_now_ns();
   for (const auto& d : devices_) {
     nlohmann::json j{{"name", d->cfg.name}, {"driver", d->cfg.driver}, {"port", d->cfg.port}, {"baud", d->cfg.baud}, {"channel", d->cfg.channel},
-                     {"state", d->state}, {"detail", d->detail}, {"bytes", d->bytes}, {"frames", d->frames}, {"errors", d->errors}, {"rate_hz", d->rate_hz},
+                     {"state", d->state}, {"detail", d->detail}, {"bytes", d->bytes}, {"frames", d->frames}, {"errors", d->errors}, {"late", d->late}, {"rate_hz", d->rate_hz},
                      {"last_frame_age_s", d->last_frame_host_ns ? static_cast<double>(now - d->last_frame_host_ns) * 1e-9 : -1.0}};
     if (d->clock_offset_ns) j["clock_offset_s"] = static_cast<double>(*d->clock_offset_ns) * 1e-9;
     if (d->leap_seconds) j["leap_seconds"] = *d->leap_seconds;

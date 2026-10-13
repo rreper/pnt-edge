@@ -39,6 +39,7 @@ struct InputConfig {
   std::vector<SerialDeviceConfig> devices;   ///< serial
   std::string record_dir;                    ///< serial: record the raw bytes of every device here (empty = off)
   double reorder_ms = 50;                    ///< serial: messages are held this long so devices are pushed in time order
+  double reorder_max_ms = 1000;              ///< serial: longest wait for a lagging device before the others are released anyway
 };
 
 struct NmeaConfig {
@@ -82,6 +83,7 @@ struct EdgeConfig {
   InputConfig input;
   NmeaConfig nmea;
   StatusConfig status;
+  double solution_watchdog_s = 20;        ///< no solution for this long while measurements keep arriving: restart the filter (0 = off)
   std::string geoid_file;                 ///< empty: PNTOS_GEOID_FILE or data/egm96_15min.bin
   WebConfig web;
   std::string path;                       ///< the file this config was loaded from (for saving)

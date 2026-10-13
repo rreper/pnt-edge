@@ -22,6 +22,7 @@ EdgeConfig edge_config_from_json(const json& j, const std::string& base_dir) {
   if (c.filter_config.empty()) throw std::runtime_error("pnt-edge config: \"filter_config\" is required");
   c.legacy_q_rotation = j.value("legacy_q_rotation", false);
   c.logging_level = j.value("logging_level", "INFO");
+  c.solution_watchdog_s = j.value("solution_watchdog_s", 20.0);
   c.geoid_file = resolve(base_dir, j.value("geoid_file", ""));
   if (j.contains("input")) {
     const json& i = j.at("input");
@@ -34,6 +35,7 @@ EdgeConfig edge_config_from_json(const json& j, const std::string& base_dir) {
     c.input.channels = i.value("channels", std::vector<std::string>{});
     c.input.record_dir = resolve(base_dir, i.value("record_dir", ""));
     c.input.reorder_ms = i.value("reorder_ms", 50.0);
+    c.input.reorder_max_ms = i.value("reorder_max_ms", 1000.0);
     for (const json& d : i.value("devices", json::array())) {
       SerialDeviceConfig s;
       s.driver = d.value("driver", "");
@@ -134,10 +136,11 @@ json edge_config_to_json(const EdgeConfig& c) {
   return json{{"filter_config", c.filter_config},
               {"legacy_q_rotation", c.legacy_q_rotation},
               {"logging_level", c.logging_level},
+              {"solution_watchdog_s", c.solution_watchdog_s},
               {"geoid_file", c.geoid_file},
               {"input", {{"type", c.input.type}, {"path", c.input.path}, {"speed", c.input.speed}, {"loop", c.input.loop}, {"url", c.input.url},
                          {"subscribe_to", c.input.subscribe_to}, {"channels", c.input.channels}, {"devices", devices}, {"record_dir", c.input.record_dir},
-                         {"reorder_ms", c.input.reorder_ms}}},
+                         {"reorder_ms", c.input.reorder_ms}, {"reorder_max_ms", c.input.reorder_max_ms}}},
               {"nmea", {{"udp_targets", c.nmea.udp_targets}, {"tcp_port", c.nmea.tcp_port}, {"command_udp_port", c.nmea.command_udp_port}, {"bind_address", c.nmea.bind_address},
                         {"talker", c.nmea.talker}, {"rate_hz", c.nmea.rate_hz}, {"utc_offset_sec", c.nmea.utc_offset_sec}, {"utc_from_receiver", c.nmea.utc_from_receiver},
                         {"sentences", c.nmea.sentences}}},

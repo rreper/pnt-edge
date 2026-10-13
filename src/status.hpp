@@ -38,4 +38,12 @@ nlohmann::json gating_from_registry(pntos::cobra::Filter& filter);
 /// Writes JSON atomically (tmp file + rename).
 void write_status_file(const std::string& path, const nlohmann::json& j);
 
+/// Filter watchdog: true when the filter has published nothing for `threshold_s` although measurements kept
+/// arriving (pushed grew since the last check) and it had already produced solutions. Cobra can stay in an error
+/// state for good after a timeline break (an out-of-order fix, a gap); the daemon then re-aligns instead of
+/// staying silent. threshold_s <= 0 disables it.
+inline bool watchdog_due(double threshold_s, double last_solution_age_s, std::uint64_t solutions, std::uint64_t pushed_now, std::uint64_t pushed_before) {
+  return threshold_s > 0 && solutions > 0 && last_solution_age_s > threshold_s && pushed_now > pushed_before;
+}
+
 }  // namespace edge
