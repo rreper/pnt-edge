@@ -8,6 +8,7 @@
 
 #include <atomic>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <thread>
 #include <vector>
@@ -51,6 +52,7 @@ class WebServer {
   WebConfig cfg_;
   std::string www_;
   auth::Users users_;
+  std::mutex users_mutex_;  ///< the users file is re-read on every login attempt (set-password while running)
   auth::Sessions sessions_;
   std::unique_ptr<httplib::Server> tactical_, maintenance_;
   std::vector<std::thread> threads_;

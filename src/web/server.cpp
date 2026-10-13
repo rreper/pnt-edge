@@ -137,10 +137,16 @@ void WebServer::configure(httplib::Server& srv, Surface surface) {
         } catch (const std::exception&) {
         }
       }
-      if (users_.empty()) {
-        hub_.log("WARN", "web", "login attempted but no users are configured (pnt-edge --set-password <user>)");
+      bool ok = false;
+      {
+        // re-read the users file so a password set while the daemon runs (pnt-edge <config> --set-password) works at once
+        std::lock_guard lk(users_mutex_);
+        std::string err;
+        if (!users_.load(cfg_.users_file, &err)) hub_.log("WARN", "web", "users file: " + err);
+        if (users_.empty()) hub_.log("WARN", "web", "login attempted but no users are configured (pnt-edge <config> --set-password <user>)");
+        ok = !user.empty() && users_.verify(user, password);
       }
-      if (!user.empty() && users_.verify(user, password)) {
+      if (ok) {
         const std::string token = sessions_.create(user);
         res.set_header("Set-Cookie", "pnt_session=" + token + "; HttpOnly; SameSite=Strict; Path=/");
         audit("user:" + user, req.remote_addr, "login", "");

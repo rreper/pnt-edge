@@ -174,10 +174,10 @@ int main(int argc, char** argv) {
 #ifdef PNT_EDGE_HAS_INTEGRITY
   cobra_integrity::register_plugins();  // makes "orchestration": "protected" available to the filter config
 #endif
-  if (argc < 2 || std::string(argv[1]) == "-h" || std::string(argv[1]) == "--help") {
+  if (argc < 2 || argv[1][0] == '-') {  // the config path comes first; "pnt-edge --set-password x" is the usual slip
     std::cerr << "usage: pnt-edge config.json [--input-log file] [--once] [--print-status]\n"
                  "       pnt-edge config.json --set-password <user>\n";
-    return argc < 2 ? 2 : 0;
+    return (argc >= 2 && (std::string(argv[1]) == "-h" || std::string(argv[1]) == "--help")) ? 0 : 2;
   }
   try {
     edge::EdgeConfig cfg = edge::load_edge_config(argv[1]);

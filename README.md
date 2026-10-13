@@ -86,7 +86,7 @@ application restart, each acknowledged (`docs/COMMAND_PROTOCOL.md`).
 
 The daemon serves a tactical display (no login, reset button) and a maintenance UI (login, full status and
 control) from `www/`, plus a JSON API with Server-Sent Events that a fleet server can read with a bearer token:
-`docs/WEB_UI.md`. Set the first maintenance password with `pnt-edge <config> --set-password admin`.
+`docs/WEB_UI.md`. Set the first maintenance password with `pnt-edge <config> --set-password admin` (the same config file the daemon runs with; it names the users file). A running daemon re-reads that file on the next login attempt, so no restart is needed.
 
 ## Integrity monitoring (optional)
 
