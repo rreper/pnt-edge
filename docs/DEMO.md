@@ -50,8 +50,15 @@ For a long demo with driving dynamics use the full 43-minute recording instead o
 ./build/pnt-edge configs/pnt-edge-demo.json --input-log <path>/cobra_gps_ins_example_data.log
 ```
 
-(On this machine the recording is in the Cobra Python venv:
-`~/orin/work/pntos/Cobra/.venv/lib/python3.12/site-packages/pntos_python_datasets_lcm/cobra_gps_ins_example_data.log`.)
+The recording (474 MB) ships in a Python package on PyPI, so no git access is needed to get it:
+
+```
+.venv/bin/pip download --no-deps -d /tmp/ds pntos-python-datasets-lcm
+cd /tmp/ds && unzip -o pntos_python_datasets_lcm-*.whl 'pntos_python_datasets_lcm/*.log'
+```
+
+The 60 s example log is a stationary segment (the filter aligns and settles; position and heading do not move), so
+use the full recording whenever the track should visibly drive.
 
 With the integrity build, `./build-integ/pnt-edge configs/pnt-edge-demo-protected.json` runs the protected
 two-source filter instead: the tactical display then shows PACE, HPL and excluded sources, `$PPNT,INTEG` is in
