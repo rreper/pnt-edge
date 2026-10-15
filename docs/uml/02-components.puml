@@ -1,0 +1,57 @@
+@startuml 02-components
+' pnt-edge: building blocks inside the process (SAD section 5)
+title pnt-edge process: components and interfaces (v0.2.0)
+skinparam componentStyle rectangle
+
+package "pnt-edge process" {
+  component "Inputs\n(src/inputs.*, src/serial/*)" as inputs
+  component "cobra::Filter\n(subproject pntos-cpp v0.2.8)" as filter #DDEEFF
+  component "Outputs\n(src/outputs.*, src/nmea.*)" as outputs
+  component "Status\n(src/status.*, src/integrity.*)" as status
+  component "Hub\n(src/web/hub.*)" as hub
+  component "WebServer\n(src/web/server.*, auth.*)" as web
+  component "Updater\n(src/web/update.*)" as updater
+  component "$PPNT handler\n(src/ppnt.*)" as ppnt
+  component "main loop / Runtime\n(src/main.cpp)" as main
+
+  interface "Filter::push(AspnBase)" as i_push
+  interface "solution callback(Pva)" as i_cb
+  interface "registry\n(gating, integrity/status)" as i_reg
+  interface "Hub::enqueue(Command)" as i_cmd
+  interface "Hub::next_command()" as i_next
+  interface "NmeaOutput::send" as i_send
+  interface "StatusSnapshot" as i_snap
+
+  inputs -( i_push
+  i_push - filter
+  filter - i_cb
+  i_cb )- outputs
+  i_cb )- hub
+  filter - i_reg
+  i_reg )- status
+  outputs -( i_send
+  web -( i_cmd
+  ppnt -( i_cmd
+  updater -( i_cmd
+  i_cmd - hub
+  hub - i_next
+  i_next )- main
+  main -( i_snap
+  i_snap - status
+  outputs ..> ppnt : $PPNT lines
+  web ..> updater : /api/v1/software
+  main ..> inputs : start/stop, counters
+  main ..> filter : construct, stop
+  status ..> hub : set_status
+}
+
+cloud "Cobra transport (LCM)" as lcmt
+inputs ..> lcmt : LcmUdpInput, LogInput
+
+note right of main
+  Runtime = { Filter, Input, NmeaOutput,
+  StatusSnapshot, utc_offset_ns }
+  rebuilt on: reset, set_nmea, watchdog,
+  host clock step, end of looped log
+end note
+@enduml

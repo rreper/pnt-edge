@@ -1,0 +1,39 @@
+@startuml 04-seq-measurement-to-nmea
+' pnt-edge: steady state, one IMU frame to NMEA on the wire (SAD section 6.2)
+title Steady state: serial frame to NMEA sentence
+participant "reader thread\n(SerialInput::run_device)" as rd
+participant "Merger\n(reorder buffer)" as mg
+participant "pusher thread\n(SerialInput::pusher)" as pu
+participant "cobra::Filter\n(filter thread)" as fl
+participant "solution callback\n(main.cpp lambda)" as cb
+participant "Hub" as hub
+participant "NmeaOutput" as out
+participant "TCP/UDP clients" as cl
+
+rd -> rd : port.read() -> vn100::Parser::feed()
+rd -> rd : stamp(): ClockMapper device->host,\nlatency removed
+rd -> rd : imu_message(): aspn23 MeasurementImu
+rd -> mg : enqueue(tov, message, channel)
+pu -> mg : pop in time order\n(window reorder_ms, cap reorder_max_ms)
+pu -> fl : push(message)
+fl -> fl : propagate / update
+fl -> cb : solution (ASPN message)
+cb -> cb : pva_from_message(+ utc_offset_ns)
+cb -> fl : registry read: integrity/status
+cb -> cb : fix_quality_for(PACE)
+cb -> hub : push_solution(pva, integrity)
+alt emit_due(tov, min_gap_ns)
+  cb -> cb : sentences(pva, NmeaOptions)
+  loop each sentence
+    cb -> out : send(sentence)
+    out -> cl : sendto UDP targets\nsend() every TCP client
+  end
+  opt integ enabled and present
+    cb -> out : send($PPNT,INTEG)
+  end
+end
+note over cb, out
+  Runs on the filter thread. send() blocks on a stalled
+  TCP client (SAD risk 6): to be made non-blocking.
+end note
+@enduml

@@ -1,0 +1,46 @@
+@startuml 05-seq-command
+' pnt-edge: a control command from $PPNT or the web to the main loop (SAD section 6.3)
+title Command handling: $PPNT,RESET and web control share one path
+actor "Tactical client" as tc
+actor "Maintainer" as mt
+participant "NmeaOutput\n(io_loop)" as io
+participant "ppnt::handle" as pp
+participant "WebServer\n(worker thread)" as ws
+participant "Hub\n(command queue)" as hub
+participant "main loop\n(100 ms)" as ml
+participant "Runtime" as rt
+
+== $PPNT path ==
+tc -> io : "$PPNT,RESET,S,filter*hh\\n" (TCP 10110 or UDP 10111)
+io -> pp : handle(line, from)
+pp -> pp : parse(): length <= 82, checksum, kind Q/S/R
+pp -> hub : enqueue({reset, {what: filter}, "ppnt", from})
+pp -> hub : audit("ppnt", from, "reset", args)
+pp --> io : ["$PPNT,ACK,RESET,OK*hh"]
+io --> tc : ACK (reply to sender)
+
+== web path ==
+mt -> ws : POST /api/v1/control/reset {"what":"filter"}
+ws -> ws : identify(): session cookie or bearer token
+ws -> ws : surface + read_only checks
+ws -> hub : enqueue({reset, args, "user:admin", addr})
+ws -> hub : audit(...)
+ws --> mt : 200 {"ok":true,"queued":"reset"}
+
+== execution (asynchronous) ==
+ml -> hub : next_command()
+hub --> ml : Command{reset}
+alt what == "app"
+  ml -> ml : g_exit_code = 3; g_stop = true
+  note right : loop exits, web stopped,\nfds closed, execv(exe_path)
+else what == "filter"
+  ml -> rt : stop_runtime(); rt.reset()
+  ml -> rt : start_runtime(cfg, hub, nopt)
+  ml -> hub : event("RESET", "filter re-aligned ...")
+end
+note over ml
+  set_nmea / save_config(NMEA changed): same rebuild (SAD risk 5)
+  set_heading / set_leverarm: patch_filter_config(), effective on next reset
+  failures: say("ERROR"), hub.event("CONTROL"); caller already acknowledged
+end note
+@enduml

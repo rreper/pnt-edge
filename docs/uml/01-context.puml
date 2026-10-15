@@ -1,0 +1,47 @@
+@startuml 01-context
+' pnt-edge: system context (SAD section 3). Render: plantuml -tsvg *.puml
+title pnt-edge system context (v0.2.0)
+left to right direction
+skinparam actorStyle awesome
+
+actor "Tactical NMEA client\n(platform nav bus)" as nmea
+actor "Tactical display\n(browser, no login)" as tact
+actor "Maintainer\n(browser, login)" as maint
+actor "Fleet server\n(bearer token)" as fleet
+
+rectangle "Sensors" {
+  component "IMU\nVectorNav VN-100" as imu
+  component "GNSS receiver\nu-blox UBX / NMEA" as gnss
+  component "LCM sources\nor event-log replay" as lcm
+}
+
+rectangle "pnt-edge appliance (Jetson Linux, systemd)" as sys {
+  component "pnt-edge" as pe
+  interface "serial" as i_ser
+  interface "LCM UDP multicast\nASPN-23" as i_lcm
+  interface "NMEA 0183\nUDP/TCP 10110" as i_nmea
+  interface "$PPNT\nTCP 10110 / UDP 10111" as i_ppnt
+  interface "HTTP :8080" as i_tact
+  interface "HTTP :8081\n/api/v1, SSE" as i_maint
+}
+
+imu --> i_ser
+gnss --> i_ser
+i_ser --> pe
+lcm --> i_lcm
+i_lcm --> pe
+pe --> i_nmea
+i_nmea --> nmea
+nmea --> i_ppnt
+i_ppnt --> pe
+pe --> i_tact
+i_tact <--> tact
+pe --> i_maint
+i_maint <--> maint
+i_maint --> fleet
+
+note bottom of sys
+  Writable paths: /run/pnt-edge (status.json), /var/lib/pnt-edge (updates, recordings),
+  /var/log/pnt-edge (audit), /etc/pnt-edge (configs, users). /usr is read-only.
+end note
+@enduml

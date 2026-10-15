@@ -1,0 +1,45 @@
+@startuml 09-deployment
+' pnt-edge: deployment on the Matchstiq G40 (SAD section 7). Items marked (C) are Phase C targets.
+title Deployment: fielded unit and bench
+node "Epiq Matchstiq G40" as g40 {
+  node "Jetson Orin NX 16 GB\nEpiq Jetson Linux (JetPack 6.x, aarch64)" as orin {
+    node "systemd" as sd {
+      artifact "pnt-edge.service\nUser=pnt-edge, Restart=always\nProtectSystem=strict" as svc
+    }
+    artifact "/usr/bin/pnt-edge\n/usr/lib (Cobra, ASPN)\n/usr/share/pnt-edge/www" as bins
+    artifact "/etc/pnt-edge\npnt-edge.json, filter config, users.json" as etc
+    artifact "/var/lib/pnt-edge\nupdates/, recordings" as var
+    artifact "/var/log/pnt-edge/audit.log" as log
+    artifact "/run/pnt-edge/status.json" as run
+    svc ..> bins
+    svc ..> etc
+    svc ..> var
+    svc ..> log
+    svc ..> run
+  }
+  node "USB boot drive (C)\n>= 64 GB, rootfs A/B, LUKS /data" as usb
+  component "Sidekiq NV100 x2\n(SDR, future input)" as nv100
+  orin -- usb
+  orin -- nv100
+}
+device "IMU VN-100" as imu
+device "GNSS u-blox" as gnss
+imu -- orin : serial
+gnss -- orin : serial
+cloud "Tactical network\n(one Ethernet port)" as net
+orin -- net : NMEA 10110/10111\nHTTP 8080/8081
+node "Platform nav consumer" as plat
+node "Maintainer laptop" as lap
+node "Fleet server" as fleet
+net -- plat
+net -- lap
+net -- fleet
+
+node "Bench (Ubuntu 24.04 x86-64)" as bench {
+  artifact "pnt-edge (same sources)" as b1
+  artifact "pnt-edge-serial-sim\n(VN-100 + u-blox on ptys)" as b2
+  artifact "Cobra lcm_log_player" as b3
+  b2 ..> b1 : /dev/pts/*
+  b3 ..> b1 : LCM multicast
+}
+@enduml

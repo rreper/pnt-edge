@@ -1,0 +1,50 @@
+@startuml 06-seq-software-update
+' pnt-edge: in-place software update from the browser (SAD section 6.5, ADR 8 - superseded by ADR 11)
+title Software update: stage, apply, re-exec (v0.2.0 in-place scheme)
+actor Maintainer as mt
+participant "WebServer" as ws
+participant "Updater" as up
+participant "tar / packaged binary" as ext
+participant "Hub" as hub
+participant "main loop" as ml
+participant "systemd" as sd
+
+mt -> ws : POST /api/v1/software/upload\n(multipart package, sha256)
+ws -> up : stage(filename, data, sha256, who)
+up -> up : write staged/package.tar.gz, sha256_hex
+up -> ext : run_command(tar -xzf ... -C extract)
+up -> up : find bin/pnt-edge, pkg_prefix, www
+up -> ext : run_command(bin/pnt-edge --version,\nLD_LIBRARY_PATH=package libs)
+ext --> up : "pnt-edge x.y.z (Cobra ...)"
+up -> up : compare sha256; staged.applicable
+up --> ws : state()
+ws --> mt : staged {version, applicable, problem}
+
+mt -> ws : POST /api/v1/software/apply
+ws -> up : apply(who)
+up -> up : backup/: copy every file to be replaced,\nversion.json with added[]
+up -> up : replace_file() each package file,\nexecutable last; replace_dir(www)
+up -> ext : run_command(ldconfig) [prefix /usr or /usr/local]
+up -> ext : probe_version(installed exe)
+alt probe fails or any copy fails
+  up -> up : restore_backup()
+  up --> ws : false, error
+  ws --> mt : 409 {error}
+else ok
+  up -> up : restart_pending = true; remove staged
+  ws -> hub : enqueue({reset, {what: app}})
+  ws --> mt : state(), restarting = true
+  ml -> hub : next_command()
+  ml -> ml : g_exit_code = 3, stop runtime, web.stop()
+  ml -> ml : close fds 3..1023; execv(exe_path, argv)
+  alt execv fails
+    ml -> sd : exit 3
+    sd -> ml : restart (Restart=always, RestartSec=2)
+  end
+end
+note over up, sd
+  Under the shipped unit (ProtectSystem=strict, /usr not writable)
+  apply fails at replace_file (SAD risk 7). ADR 11 moves the
+  install step to an image-level A/B switch; stage/verify stay.
+end note
+@enduml

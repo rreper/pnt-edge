@@ -1,0 +1,156 @@
+@startuml 03-classes
+' pnt-edge: principal classes under src/ (SAD section 5). Private members omitted.
+title pnt-edge principal classes (v0.2.0)
+skinparam classAttributeIconSize 0
+hide empty members
+
+package edge {
+  abstract class Input {
+    +start()
+    +stop()
+    +finished() : bool
+    +counters() : InputCounters
+    +devices() : json
+    +utc_correction_ns() : optional<int64>
+    +uses_host_clock() : bool
+  }
+  class LogInput
+  class LcmUdpInput
+  class SerialInput {
+    +devices() : json
+    +utc_correction_ns()
+    +uses_host_clock() : bool
+    -run_device(Device&)
+    -stamp(...) : int64
+    -enqueue(...)
+    -pusher()
+  }
+  Input <|-- LogInput
+  Input <|-- LcmUdpInput
+  Input <|-- SerialInput
+
+  class NmeaOutput {
+    +send(sentence)
+    +tcp_clients() : size_t
+    +sentences_sent() : uint64
+    +set_command_handler(CommandHandler)
+    -accept_loop()
+    -io_loop()
+    -handle_line(...)
+  }
+
+  class Hub {
+    +set_status(json)
+    +push_solution(Pva, IntegrityStatus)
+    +log(level, source, message)
+    +event(kind, detail)
+    +audit(who, address, action, detail)
+    +set_config(edge, filter)
+    +status() : json
+    +solution() : json
+    +history(seconds, points) : json
+    +events(max) : json
+    +wait_for_change(seen, timeout) : uint64
+    +enqueue(Command)
+    +next_command() : optional<Command>
+  }
+  class Command {
+    +kind : string
+    +args : json
+    +source : string
+    +address : string
+  }
+
+  class WebServer {
+    +start()
+    +stop()
+    +set_updater(Updater*)
+    -configure(Server&, Surface)
+    -identify(Request, Surface) : Identity
+    -serve_file(rel, Response&) : bool
+  }
+  class Updater {
+    +stage(filename, data, sha256, who, err) : bool
+    +apply(who, err) : bool
+    +rollback(who, err) : bool
+    +discard(err) : bool
+    +state() : json
+    -inspect(StagedPackage&, err)
+    -restore_backup(err)
+  }
+  class StatusSnapshot
+  class EdgeConfig
+  class IntegrityStatus
+  class Pva
+}
+
+package edge.auth {
+  class Users {
+    +load(path, err) : bool
+    +save(path, err) : bool
+    +set_password(name, password, iterations)
+    +verify(name, password) : bool
+  }
+  class Sessions {
+    +create(user) : token
+    +user_for(token) : optional<string>
+    +revoke(token)
+  }
+}
+
+package edge.serial {
+  class Merger
+  class ClockMapper {
+    +map(device_ns, host_ns) : int64
+  }
+  class HostClockMonitor {
+    +check(realtime_ns, mono_ns) : optional<double>
+  }
+  class "vn100::Parser" as VnParser
+  class "ubx::Parser" as UbxParser
+  class "nmea::Parser" as NmeaParser
+}
+
+package edge.ppnt {
+  class Sentence
+  class Context
+}
+
+package pntos.cobra <<external>> {
+  class Filter {
+    +push(shared_ptr<AspnBase>)
+    +set_solution_callback(fn)
+    +registry()
+    +error_logged() : bool
+    +stop() : int
+  }
+}
+
+Input --> Filter : push
+SerialInput *-- Merger
+SerialInput *-- ClockMapper
+SerialInput ..> VnParser
+SerialInput ..> UbxParser
+SerialInput ..> NmeaParser
+WebServer --> Hub
+WebServer *-- Users
+WebServer *-- Sessions
+WebServer --> Updater
+Hub o-- Command
+Hub o-- Pva
+Hub o-- IntegrityStatus
+NmeaOutput ..> Context : CommandHandler -> ppnt::handle
+Context --> Hub
+
+class Runtime <<main.cpp>> {
+  +filter : unique_ptr<Filter>
+  +input : unique_ptr<Input>
+  +out : unique_ptr<NmeaOutput>
+  +status : StatusSnapshot
+  +utc_offset_ns : atomic<int64>
+}
+Runtime *-- Filter
+Runtime *-- Input
+Runtime *-- NmeaOutput
+Runtime *-- StatusSnapshot
+@enduml

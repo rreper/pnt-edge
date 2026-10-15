@@ -1,0 +1,24 @@
+@startuml 08-state-runtime
+' pnt-edge: Runtime lifecycle driven by the main loop (SAD section 6.4)
+title Runtime lifecycle and the recovery ladder
+[*] --> Starting : main(): config, Hub, Updater, WebServer
+Starting --> Running : start_runtime()\nfilter + input + output built, input started
+Running --> Rebuilding : solution watchdog\n(no solution for solution_watchdog_s\nwhile measurements arrive)
+Running --> Rebuilding : host clock step\nand input uses host clock
+Running --> Rebuilding : reset filter\n($PPNT or web)
+Running --> Rebuilding : set_nmea / save_config\n(NMEA block changed)
+Running --> Rebuilding : looped log ended
+Rebuilding --> Running : stop_runtime(), start_runtime()
+Running --> Stopping : SIGINT / SIGTERM
+Running --> Stopping : reset app\n(web, $PPNT, update applied)
+Stopping --> [*] : exit code (filter stop)
+Stopping --> ReExec : g_exit_code == 3
+ReExec --> Starting : execv(exe_path) succeeds\n(new image, same pid)
+ReExec --> [*] : execv fails -> exit 3
+note bottom
+  Outer rungs, outside this process:
+  systemd Restart=always RestartSec=2 (exists)
+  systemd WatchdogSec via sd_notify (planned)
+  Tegra hardware watchdog, A/B rootfs (Phase C)
+end note
+@enduml

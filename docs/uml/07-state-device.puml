@@ -1,0 +1,24 @@
+@startuml 07-state-device
+' pnt-edge: per-serial-device state (SerialInput::run_device, SAD section 6.4)
+title Serial device lifecycle (one reader thread per device)
+[*] --> opening
+opening --> open : port.open() ok\nconfigure (UBX CFG-VALSET / VN-100 init)
+opening --> closed : open fails
+closed --> opening : after 1 s
+open --> open : frame decoded\nstamp, enqueue to Merger
+open --> no_data : nothing received for 5 s
+no_data --> open : bytes arrive
+open --> lost : read error\n(port closed, unplugged)
+no_data --> lost : read error
+lost --> opening : reopen loop
+open --> [*] : stop()
+no_data --> [*] : stop()
+lost --> [*] : stop()
+closed --> [*] : stop()
+
+note right of open
+  Health per device: state, detail,
+  bytes, frames, decode errors,
+  rate, age, last TOV -> StatusSnapshot
+end note
+@enduml
