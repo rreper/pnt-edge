@@ -51,3 +51,17 @@ RESET queued through the same command layer as the web control routes, acknowled
 commands read on the NMEA TCP connections and on a UDP command port, audit log shared with the web surfaces.
 Cobra v0.2.7 so that `VER` reports the real library version.
 
+## Cobra v0.2.17 (2026-11-16)
+
+`subprojects/pntos-cpp.wrap` names Cobra v0.2.17 (v0.2.8 before), and `meson.build` asks for at least that
+version, so that a checkout still holding the old subproject stops with one clear message. Nothing changes by the
+move: all that Cobra added since v0.2.8 is off unless the filter configuration names it. The 60 s replay gives the
+same 350 NMEA sentences byte for byte, and the build with the integrity plugin the same 200; 28 tests pass in both.
+
+What is there to use, once a filter configuration for the bench asks for it: handling of lost, late and sampled IMU
+data (v0.2.9, the items of the inertial review), measurements applied in time order and body velocity with
+calibration states (v0.2.10), alignment in motion, so that the heading no longer comes from the configuration
+(v0.2.11), zero-velocity and zero-rate updates at a standstill (v0.2.12, v0.2.15), an IMU replay across the
+initialization (v0.2.13), and the receiver's time offsets (v0.2.16, v0.2.17). Cobra's
+`configs/pos_ins_ground_vehicle.json` is the example that puts them together for a road vehicle; its channel names
+and time biases are those of the example recording.
