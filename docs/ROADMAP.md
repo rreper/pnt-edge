@@ -119,14 +119,21 @@ silent sources (`docs/COMMAND_PROTOCOL.md`; a reader that counts the fields has 
 shows the same three things. Tests `Integrity.TheSentenceCarriesTheVerticalLevelAndWhyASourceIsOut` and
 `TheStatusIsReadFromThePluginsKeys`; 31 tests in the plain build and in the one with the plugin.
 
-**The integrity plugin on top of this filter does not work yet.** With `"orchestration": "protected"` and the
-integrity keys of cobra-integrity's `pos_ins_protected1.json`, the full recording gives a solution (1.53 m, 0.75°
-of heading, PRIMARY throughout, HPL 7.9 m and VPL 10.6 m in the median), but two of the filter's measurement
-models are refused at every epoch, 4926 velocity updates and 624 zero-rate updates, each with an ERROR line: the
-plugin hands the measurement models the inertial solution and the specific force and not the sensor errors the
-inertial is applying, which Cobra added in v0.2.12 and these two need. That is to be fixed in cobra-integrity
-(`ProtectedOrchestrationPlugin::send_inertial_aux_to_measurement_processor`); until then there is no protected
-variant of `road_vehicle.json`.
+**The integrity plugin on top of this filter**, with `"orchestration": "protected"` and the integrity keys of
+cobra-integrity's `pos_ins_protected1.json`, over the full recording. Two things had to be put right first.
 
-Not done: that fix and the protected variant; a run with real devices; the receiver's fix passed on while the
-filter is still aligning.
+- cobra-integrity did not hand the measurement models the sensor errors the inertial is applying, which Cobra
+  added in v0.2.12: 4926 velocity updates and 624 zero-rate updates were refused, each with an ERROR, while a
+  solution still came (1.53 m, 0.75° of heading). Fixed there on 22 November 2026 (its `docs/PROGRESS.md`); this
+  repository needs a cobra-integrity from that day on.
+- The status loop read the registry groups `integrity/status` and `fusion/gating` from the main thread while the
+  filter was writing them: one `Batch "integrity/status" already live` in the 2445 epochs of the replay at 25
+  times real time, and the daemon crashed on its way out. The solution callback, which runs in the thread that
+  feeds the filter, now keeps both and the status loop takes its copy. No unit test reaches that loop; the check
+  is the replay, twice: no ERROR line, exit code 0, the status file with its integrity and gating keys.
+
+With both: 1.51 m and 0.65° of heading, which is the run without the plugin; PRIMARY throughout; HPL 6.1 m and
+VPL 8.7 m in the median (7.9 m and 10.6 m while the velocity updates were refused).
+
+Not done: a protected variant of `road_vehicle.json` among the configurations; a run with real devices; the
+receiver's fix passed on while the filter is still aligning.

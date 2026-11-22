@@ -113,6 +113,12 @@ std::unique_ptr<Runtime> start_runtime(const edge::EdgeConfig& cfg, edge::Hub& h
     r->status.last_solution = p;
     r->last_solution_wall = std::chrono::steady_clock::now();
     const auto integ = edge::integrity_from_registry(*r->filter);
+    // The registry is read here and nowhere else: this callback runs in the thread that feeds the filter, between
+    // two of its steps. The status loop takes these copies. It used to read the groups itself from the main
+    // thread, and a batch on a group the filter is writing at that moment fails ("already live"): one ERROR in
+    // 2445 epochs of a fast replay with the integrity plugin, and the daemon crashed on its way out.
+    r->status.integrity = integ;
+    r->status.gating = edge::gating_from_registry(*r->filter);
     p.fix_quality = edge::fix_quality_for(integ, p.fix_quality);
     hub.push_solution(p, integ);
     if (!edge::emit_due(r->last_emitted_tov, p.tov_ns, min_gap_ns)) return;
@@ -407,8 +413,7 @@ int main(int argc, char** argv) {
         continue;
       }
       pushed_at_last_status = snap.input.pushed;
-      snap.gating = edge::gating_from_registry(*rt->filter);
-      snap.integrity = edge::integrity_from_registry(*rt->filter);
+      // snap.gating and snap.integrity came with the copy above: the solution callback keeps them (see there)
       const auto j = edge::status_to_json(snap);
       hub.set_status(j);
       // events worth a line on the timeline
