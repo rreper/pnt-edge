@@ -1,0 +1,366 @@
+{
+  "app": {
+    "diagnostic_log": false,
+    "diagnostic_log_file": "",
+    "initialization": "in_motion_align",
+    "joseph_form": true,
+    "legacy_q_rotation": false,
+    "logging_level": "INFO",
+    "name": "road_vehicle",
+    "orchestration": "standard",
+    "preprocessors": [
+      "standard",
+      "advanced"
+    ],
+    "state_modeling": "standard",
+    "transport": "lcm_log",
+    "ui_log_plotting": false
+  },
+  "configs": [
+    {
+      "channels_to_process": [
+        "/sensor/vn-100/imu",
+        "/sensor/ublox-ZED-F9T/position",
+        "/sensor/ublox-ZED-F9T/velocity"
+      ],
+      "group": "config/lcm_log_transport",
+      "input_file": "cobra_gps_ins_example_data.log",
+      "output_file": "pntos_output.log",
+      "record_input_channels": true,
+      "type": "LcmLogTransportConfig"
+    },
+    {
+      "auto_shutdown": true,
+      "buffer_length_sec": 2.0,
+      "group": "config/controller",
+      "publish_interval": 1.0,
+      "type": "ControllerConfig"
+    },
+    {
+      "group": "config/fusion_engine",
+      "save_x_and_p_after_prop": false,
+      "save_x_and_p_after_update": false,
+      "type": "FusionEngineConfig"
+    },
+    {
+      "additional_sb_configs": [
+        {
+          "estimate_with_covariance": {
+            "covariance_diag": [
+              9.0,
+              9.0,
+              9.0
+            ],
+            "estimate": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "type": "EWC_GENERIC"
+          },
+          "fogm_model": {
+            "group": "config/pos_sensor_error",
+            "sigma": [
+              1.5,
+              1.5,
+              2.0
+            ],
+            "tau": [
+              300.0,
+              300.0,
+              200.0
+            ],
+            "type": "FogmConfig"
+          },
+          "group": "config/pos_fogm_block",
+          "label": "pos_sensor_error",
+          "type": "FogmStateBlockConfig"
+        },
+        {
+          "estimate_with_covariance": {
+            "covariance_diag": [
+              0.0009,
+              0.0004,
+              0.0004
+            ],
+            "estimate": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "type": "EWC_GENERIC"
+          },
+          "fogm_model": {
+            "group": "config/odometer_calibration",
+            "sigma": [
+              0.03,
+              0.02,
+              0.02
+            ],
+            "tau": [
+              600.0,
+              600.0,
+              600.0
+            ]
+          },
+          "group": "config/odometer_calibration_block",
+          "label": "odometer_calibration",
+          "type": "FogmStateBlockConfig"
+        },
+        {
+          "estimate_with_covariance": {
+            "covariance_diag": [
+              0.09
+            ],
+            "estimate": [
+              0.0
+            ],
+            "type": "EWC_GENERIC"
+          },
+          "fogm_model": {
+            "group": "config/vel_time_offset",
+            "sigma": [
+              0.3
+            ],
+            "tau": [
+              1000000.0
+            ]
+          },
+          "group": "config/vel_time_offset_block",
+          "label": "vel_time_offset",
+          "type": "FogmStateBlockConfig"
+        }
+      ],
+      "alignment_channels": [
+        "/sensor/ublox-ZED-F9T/position",
+        "/sensor/vn-100/imu",
+        "/sensor/ublox-ZED-F9T/velocity"
+      ],
+      "alignment_config": {
+        "group": "config/default/alignment",
+        "heading_sigma": 0.05235987755982989,
+        "imu_model": {
+          "group": "config/inertial_state",
+          "preset": "vn100_driving",
+          "type": "ImuConfig"
+        },
+        "lever_arm": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "time_offset_prior_sigma": 0.3,
+        "type": "InMotionAlignmentConfig",
+        "velocity_source": "velocity"
+      },
+      "best_sol_channel": "/solution/pntos/pva",
+      "group": "config/orchestration",
+      "imu_sol_channel": "/solution/pntos-imu/pva",
+      "inertial_config": {
+        "C_imu_to_platform": [
+          [
+            1.0,
+            0.0,
+            0.0
+          ],
+          [
+            0.0,
+            1.0,
+            0.0
+          ],
+          [
+            0.0,
+            0.0,
+            1.0
+          ]
+        ],
+        "attitude_interpolation": "quaternion",
+        "channels": [
+          "/sensor/vn-100/imu"
+        ],
+        "dt_window": 100,
+        "expected_dt": 0.01,
+        "group": "config/inertial",
+        "imu_gap_policy": "hold",
+        "inertial_buffer_length": 10.0,
+        "max_imu_gap": 1.0,
+        "reject_non_finite": true,
+        "sampled_imu": "integrate",
+        "type": "InertialConfig"
+      },
+      "max_filter_lag": 2.0,
+      "max_prop_interval": 2.0,
+      "measurement_reorder_s": 2.5,
+      "mp_configs": [
+        {
+          "aux_channels": [
+            "INERTIAL_PVA"
+          ],
+          "channel": "/sensor/ublox-ZED-F9T/position",
+          "group": "config/pos_measurement_processor",
+          "label": "pos",
+          "lever_arm": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "state_block_labels": [
+            "pinson15",
+            "pos_sensor_error"
+          ],
+          "type": "PinsonWithNedFogmPositionMPConfig"
+        },
+        {
+          "aux_channels": [
+            "INERTIAL_PVA",
+            "INERTIAL_FORCES_AND_RATES"
+          ],
+          "channel": "/generated/constraints",
+          "group": "config/constraints_processor",
+          "label": "constraints",
+          "lever_arm": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "orientation": [
+            1.0,
+            0.0,
+            0.0,
+            0.0
+          ],
+          "state_block_labels": [
+            "pinson15",
+            "odometer_calibration"
+          ],
+          "type": "PinsonOdometryMPConfig"
+        },
+        {
+          "aux_channels": [
+            "INERTIAL_PVA"
+          ],
+          "channel": "/generated/zero_velocity",
+          "group": "config/zero_velocity_processor",
+          "innovation_gate_probability": 0.999,
+          "label": "zero_velocity",
+          "state_block_labels": [
+            "pinson15"
+          ],
+          "type": "PinsonVelocityMPConfig"
+        },
+        {
+          "channel": "/generated/zero_rate",
+          "group": "config/zero_rate_processor",
+          "innovation_gate_probability": 0.999,
+          "label": "zero_rate",
+          "state_block_labels": [
+            "pinson15"
+          ],
+          "type": "PinsonZeroRateMPConfig"
+        },
+        {
+          "channel": "/sensor/ublox-ZED-F9T/velocity",
+          "group": "config/vel_measurement_processor",
+          "label": "vel",
+          "state_block_labels": [
+            "pinson15",
+            "vel_time_offset"
+          ],
+          "type": "PinsonVelocityTimeOffsetMPConfig"
+        }
+      ],
+      "pinson_sb_config": {
+        "group": "config/pinson_block",
+        "imu_model": {
+          "group": "config/inertial_state",
+          "preset": "vn100_driving",
+          "type": "ImuConfig"
+        },
+        "label": "pinson15",
+        "legacy_q_rotation": false,
+        "type": "PinsonStateBlockConfig"
+      },
+      "preprocessor_configs": [
+        {
+          "C_imu_to_platform": [
+            [
+              1.0,
+              0.0,
+              0.0
+            ],
+            [
+              0.0,
+              1.0,
+              0.0
+            ],
+            [
+              0.0,
+              0.0,
+              1.0
+            ]
+          ],
+          "channels": [
+            "/sensor/vn-100/imu"
+          ],
+          "group": "config/imu_rotator",
+          "type": "ImuRotatorConfig"
+        },
+        {
+          "channels": [
+            "/sensor/ublox-ZED-F9T/position"
+          ],
+          "group": "config/time_bias",
+          "time_bias": 0,
+          "type": "TimeBiasConfig"
+        },
+        {
+          "channels": [
+            "/sensor/vn-100/imu"
+          ],
+          "group": "config/constraints",
+          "lateral_vel_sigma": 0.2,
+          "output_channel": "/generated/constraints",
+          "trigger_dt_sec": 1.0,
+          "type": "ZeroVelocity2dGeneratorConfig",
+          "vertical_vel_sigma": 0.2
+        },
+        {
+          "channels": [
+            "/sensor/ublox-ZED-F9T/velocity"
+          ],
+          "group": "config/time_bias_velocity",
+          "time_bias": 0,
+          "type": "TimeBiasConfig"
+        },
+        {
+          "channels": [
+            "/sensor/vn-100/imu",
+            "/sensor/ublox-ZED-F9T/velocity"
+          ],
+          "confirmation_channels": [
+            "/sensor/ublox-ZED-F9T/velocity"
+          ],
+          "group": "config/zero_motion",
+          "rate_channel": "/generated/zero_rate",
+          "type": "ZeroMotionGeneratorConfig",
+          "velocity_channel": "/generated/zero_velocity"
+        }
+      ],
+      "publish_after_update": false,
+      "publish_before_update": false,
+      "stream_config": {
+        "default_buffer_mode": "SEQUENCED",
+        "group": "config/stream_config",
+        "override_streams": [
+          {
+            "group": "config/imu_stream",
+            "message_type": "MEASUREMENT_IMU",
+            "type": "Stream"
+          }
+        ],
+        "type": "StreamConfig"
+      },
+      "type": "StandardOrchestrationConfig"
+    }
+  ]
+}

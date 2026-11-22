@@ -133,3 +133,39 @@ TEST(Status, WatchdogDue) {
   // silent while measurements arrive: restart
   EXPECT_TRUE(edge::watchdog_due(20, 21, 10, 201, 200));
 }
+
+TEST(EdgeConfig, TheRoadVehicleFilterLoadsAndCarriesNothingOfTheExampleRecording) {
+  // configs/filters/road_vehicle.json is Cobra's ground-vehicle example for real devices: the heading is found
+  // while driving, and what belongs to one installation (how the IMU is mounted, where the antenna is, how old
+  // the receiver's data are) is identity, zero, or a state of the filter. Cobra's own examples carry the values of
+  // its recording, which on any other vehicle are wrong.
+  std::ifstream in(src("configs/filters/road_vehicle.json"));
+  ASSERT_TRUE(in.good());
+  const auto j = nlohmann::json::parse(in);
+  EXPECT_EQ(j.at("app").at("initialization"), "in_motion_align");
+  int orchestrations = 0;
+  for (const auto& c : j.at("configs")) {
+    if (c.at("type") != "StandardOrchestrationConfig") continue;
+    ++orchestrations;
+    const auto identity = nlohmann::json::array({{1.0, 0.0, 0.0}, {0.0, 1.0, 0.0}, {0.0, 0.0, 1.0}});
+    const auto zero = nlohmann::json::array({0.0, 0.0, 0.0});
+    EXPECT_EQ(c.at("inertial_config").at("C_imu_to_platform"), identity);
+    EXPECT_EQ(c.at("inertial_config").at("imu_gap_policy"), "hold");  // lost samples are the inertial's to handle
+    EXPECT_EQ(c.at("alignment_config").at("lever_arm"), zero);
+    EXPECT_FALSE(c.at("alignment_config").contains("heading"));
+    for (const auto& p : c.at("preprocessor_configs")) {
+      EXPECT_NE(p.at("type"), "TimeAdjusterConfig");  // it re-stamps every sample 10 ms after the last
+      if (p.at("type") == "TimeBiasConfig") EXPECT_EQ(p.at("time_bias"), 0);
+      if (p.at("type") == "ImuRotatorConfig") EXPECT_EQ(p.at("C_imu_to_platform"), identity);
+    }
+    for (const auto& m : c.at("mp_configs"))
+      if (m.contains("lever_arm")) EXPECT_EQ(m.at("lever_arm"), zero);
+  }
+  EXPECT_EQ(orchestrations, 1);
+
+  auto app = pntos::cobra::jsoncfg::load_app_config(src("configs/filters/road_vehicle.json"));
+  app.app.logging_level = "WARN";
+  pntos::cobra::app::RunOptions o;
+  o.progress = false;
+  EXPECT_NO_THROW({ pntos::cobra::Filter filter(app, o); });
+}

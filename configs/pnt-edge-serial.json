@@ -1,12 +1,16 @@
 {
   // Bench / appliance configuration with real devices on serial ports (docs/SERIAL.md).
   //  - VN-100 on a USB-serial adapter at 921600 baud, told on open to stream the binary output group 1
-  //    (TimeStartup + DeltaThetaVel) at 200 Hz on its serial port 1 and to stop ASCII output.
+  //    (TimeStartup + DeltaThetaVel) at 100 Hz on its serial port 1 and to stop ASCII output (register 75, rate
+  //    divisor 8 of the 800 Hz the unit runs at). 100 Hz is what the filter configuration expects ("expected_dt").
   //  - u-blox ZED-F9 on its USB port, told on open (CFG-VALSET, RAM) to send UBX NAV-PVT + NAV-TIMELS at 5 Hz
-  //    and no NMEA on that port.
+  //    and no NMEA on that port. Its velocity goes to the filter as well ("velocity_channel"): the filter finds its
+  //    heading from it while the vehicle drives, and takes its word for a standstill.
+  //  - The filter is configs/filters/road_vehicle.json. It carries nothing of any one installation: put how the IMU
+  //    is mounted (C_imu_to_platform, twice) and where the antenna is (lever_arm, twice) into the installed copy.
   // Times are stamped on the host clock with the device latency removed; the receiver's UTC corrects the NMEA
   // output ("utc_from_receiver"). Sigmas come from the receiver (hAcc / vAcc) with a 0.3 m floor.
-  "filter_config": "/etc/pnt-edge/pos_ins.json",
+  "filter_config": "/etc/pnt-edge/filters/road_vehicle.json",
   "logging_level": "INFO",
   "input": {
     "type": "serial",
@@ -15,9 +19,9 @@
     "devices": [
       {"name": "imu", "driver": "vn100", "port": "/dev/ttyUSB0", "baud": 921600, "channel": "/sensor/vn-100/imu",
        "time_source": "host", "latency_ms": 0.5,
-       "init": ["VNWRG,06,0", "VNWRG,75,1,4,01,0801"]},
+       "init": ["VNWRG,06,0", "VNWRG,75,1,8,01,0801"]},
       {"name": "gnss", "driver": "ubx", "port": "/dev/ttyACM0", "baud": 115200, "channel": "/sensor/ublox-ZED-F9T/position",
-       "time_source": "host", "configure": true, "rate_hz": 5, "ubx_port": "usb", "sigma_floor_m": 0.3}
+       "velocity_channel": "/sensor/ublox-ZED-F9T/velocity", "time_source": "host", "configure": true, "rate_hz": 5, "ubx_port": "usb", "sigma_floor_m": 0.3}
     ]
   },
   "nmea": {"udp_targets": [], "tcp_port": 10110, "command_udp_port": 10111, "bind_address": "0.0.0.0", "rate_hz": 1,

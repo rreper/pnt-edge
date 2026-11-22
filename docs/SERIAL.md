@@ -13,13 +13,32 @@ pseudo-terminals of the simulator) and pushes their measurements into the filter
 
 The filter config decides what is done with the messages (the IMU preset, lever arms, processors): the device's
 `channel` must match the channel the filter config names (`/sensor/vn-100/imu`, `/sensor/ublox-ZED-F9T/position`
-in Cobra's `pos_ins.json`). A velocity channel needs a velocity processor in that config; leave it empty otherwise.
+in Cobra's `pos_ins.json`). A velocity channel needs something in that config that listens to it; leave it empty
+otherwise.
+
+`configs/filters/road_vehicle.json` is the filter configuration for a road vehicle with these devices, and
+`configs/pnt-edge-serial.json` names it. It is Cobra's `pos_ins_ground_vehicle.json` without what belongs to
+Cobra's example recording:
+
+- The heading comes from the receiver's velocity while the vehicle drives (alignment in motion), not from a number
+  in the file. **There is no solution until the vehicle has moved**; the status says so until then.
+- The receiver's velocity is used three ways, so the u-blox entry needs its `velocity_channel`: for that alignment,
+  as a second witness that the vehicle stands, and as a measurement whose age the filter estimates itself.
+- Lost, late and non-finite IMU samples are the inertial's to handle (`imu_gap_policy` and the keys beside it).
+  Cobra's `TimeAdjusterConfig`, which re-stamps every IMU sample 10 ms after the last, is not in it.
+- Two things are left neutral for the installation to fill in, each in two places of the file: how the IMU is
+  mounted (`C_imu_to_platform`, sensor axes to forward-right-down of the vehicle) and where the antenna is
+  (`lever_arm`, metres from the IMU in vehicle axes). On Cobra's recording the filter runs without them, 2.1 m and
+  1.2° where it has 1.5 m and 0.65° with them (docs/ROADMAP.md).
+- It expects the IMU at 100 Hz (`expected_dt` 0.01, and the standstill detector's thresholds were found at that
+  rate). The constraints "no sideways and no vertical motion" make it a filter for road vehicles; take the
+  `ZeroVelocity2dGeneratorConfig` and its processor out for anything that can slide or fly.
 
 ## Device entry
 
 ```json
 {"name": "imu", "driver": "vn100", "port": "/dev/ttyUSB0", "baud": 921600, "channel": "/sensor/vn-100/imu",
- "time_source": "host", "latency_ms": 0.5, "init": ["VNWRG,06,0", "VNWRG,75,1,4,01,0801"]}
+ "time_source": "host", "latency_ms": 0.5, "init": ["VNWRG,06,0", "VNWRG,75,1,8,01,0801"]}
 ```
 
 | key | meaning |
@@ -39,7 +58,9 @@ filter in time order, since a late position would otherwise be applied at the fi
 ### VN-100 register writes used in `configs/pnt-edge-serial.json`
 
 - `VNWRG,06,0` — stop the ASCII async output.
-- `VNWRG,75,1,4,01,0801` — binary output 1 on serial port 1, rate divisor 4 (800 Hz / 4 = 200 Hz), group 1 fields
+- `VNWRG,75,1,8,01,0801` — binary output 1 on serial port 1, rate divisor 8 (800 Hz / 8 = 100 Hz, the rate the
+  filter configuration expects; until November 2026 the example said divisor 4, 200 Hz, against a filter
+  configuration that took every sample to be 10 ms after the last), group 1 fields
   `0x0801` = TimeStartup + DeltaThetaVel. Add `0x0200` for the raw Imu field, `0x0002` for TimeGps on a VN-200/300.
   Use port 2 (`VNWRG,75,2,…`) when the device is wired through its second UART. `VNWRG,05,921600` changes the baud
   rate (then re-open at the new rate); `VNWNV` saves to non-volatile memory.
@@ -114,10 +135,14 @@ input end to end over ptys with the 60 s log at 20× (every frame pushed, the fi
 ## Bench checklist for a new installation
 
 1. `ls -l /dev/serial/by-id/` and use those stable names in the config instead of `ttyUSB0`.
-2. Start pnt-edge, open the maintenance UI → Inputs: both devices `streaming`, IMU rate ≈ 200 Hz, GNSS at the
+2. Start pnt-edge, open the maintenance UI → Inputs: both devices `streaming`, IMU rate ≈ 100 Hz, GNSS at the
    configured rate, errors 0, clock offsets steady.
 3. Run `tools/imu_allan.py` of the Cobra repository on a 30-minute static recording (`record_dir`, then replay
    through the sim or the LCM path) and the private tuning procedure to derive the IMU preset for this unit.
-4. Set the lever arms and the mounting rotation in the filter config (maintenance UI → Config, or `$PPNT,LEVERARM`).
+4. Set the lever arms and the mounting rotation in the filter config (maintenance UI → Config, or `$PPNT,LEVERARM`):
+   `/etc/pnt-edge/filters/road_vehicle.json` has identity and zeros.
+5. Drive. The filter aligns within some tens of seconds of the first acceleration or bend and logs the heading it
+   found and how old it takes the receiver's velocity to be; that second figure is a property of the receiver and
+   its settings and is worth writing down.
 
 Not in this phase: ASPN-23 over LCM output, SPI IMUs, serial-port NMEA output. See docs/ROADMAP.md.

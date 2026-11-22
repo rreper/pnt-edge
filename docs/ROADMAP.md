@@ -65,3 +65,45 @@ calibration states (v0.2.10), alignment in motion, so that the heading no longer
 initialization (v0.2.13), and the receiver's time offsets (v0.2.16, v0.2.17). Cobra's
 `configs/pos_ins_ground_vehicle.json` is the example that puts them together for a road vehicle; its channel names
 and time biases are those of the example recording.
+
+## A filter configuration for real devices (2026-11-22)
+
+Every configuration here named Cobra's `pos_ins.json`, which carries the heading, the IMU mounting, the antenna
+lever arm and the time biases of Cobra's example recording, and re-stamps every IMU sample 10 ms after the last.
+On the recording that is right; on a vehicle with a VN-100 and a u-blox on serial ports none of it is, and
+`configs/pnt-edge-serial.json` set the VN-100 to 200 Hz on top of it.
+
+`configs/filters/road_vehicle.json` is Cobra's `pos_ins_ground_vehicle.json` (v0.2.17) for real devices: alignment
+in motion, zero-velocity and zero-rate updates at a standstill that the receiver's velocity confirms, the
+constraints of a road vehicle, the receiver's velocity as a measurement with its age as a filter state, the
+live-IMU handling of v0.2.9 in place of the `TimeAdjusterConfig`; mounting identity, lever arms zero, time biases
+zero. `configs/pnt-edge-serial.json` names it, sends the receiver's velocity to the filter (`velocity_channel`)
+and sets the VN-100 to 100 Hz; `meson install` puts the file into `/etc/pnt-edge/filters`. The replay and demo
+configurations keep `pos_ins.json`, which is the filter that fits the recording they play.
+
+The full recording (43 minutes) replayed through the daemon, its GGA and HDT sentences against the recording's
+reference solution:
+
+| filter configuration | first position | horizontal RMS (worst) | heading RMS (worst) |
+|---|---|---|---|
+| Cobra `pos_ins.json` (the heading from the file) | 10 s | 1.54 m (2.8) | 0.83° (3.4) |
+| Cobra `pos_ins_ground_vehicle.json` | 137 s | 1.54 m (2.8) | 0.65° (2.6) |
+| `road_vehicle.json` with the recording's mounting, lever arm and 150 ms on the fixes filled in | 137 s | 1.51 m (3.4) | 0.65° (2.5) |
+| `road_vehicle.json` with mounting and lever arm only | 137 s | 1.87 m (4.0) | 0.64° (2.4) |
+| `road_vehicle.json` as it is installed, nothing filled in | 137 s | 2.05 m (4.2) | 1.16° (3.0) |
+
+- The car of the recording stands for its first 125 s. A filter that finds its heading while driving has nothing
+  to say until then; the status reports `aligning`. Whether the daemon should pass the receiver's own fix on in
+  that time is open.
+- The filter finds the receiver's velocity 0.30 s older than its time stamps in each of the three runs.
+- The 0.36 m between the third and the fourth row are the 150 ms of the fixes, measured against a reference
+  solution whose time base is not the IMU's (Cobra `docs/DESIGN.md` §7.29). It says nothing about devices stamped
+  by the drivers here, where zero is the figure to start from.
+
+`pnt-edge-serial-sim` now sends the receiver's velocity of the log in each NAV-PVT (`--velocity-channel`). It
+sent zero before, which a filter that listens to the velocity takes for a vehicle that never moves.
+
+Test: `EdgeConfig.TheRoadVehicleFilterLoadsAndCarriesNothingOfTheExampleRecording`; 29 tests.
+
+Not done: the integrity status keys of cobra-integrity v0.2 in the status file, the web pages and `$PPNT,INTEG`;
+a protected variant of this filter (the keys of `pos_ins_protected1.json`); a run with real devices.

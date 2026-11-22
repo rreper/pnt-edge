@@ -61,12 +61,15 @@ directory or your own), names the input (`lcm_log`, `lcm_udp` or `serial` device
 `docs/SERIAL.md`), the NMEA targets and the status file. Paths
 are relative to the config file. The filter's own sensors, lever arms, presets and processors are described
 in the Cobra config; `docs/GETTING_STARTED.md` of the Cobra repository explains that format.
+`configs/filters/road_vehicle.json` is the filter for a road vehicle with real devices (heading found while
+driving, nothing of Cobra's example recording in it; `docs/SERIAL.md`). The replay and demo configurations use
+Cobra's own `pos_ins.json`, which fits the recording they play and no other vehicle.
 
 ## Layout
 
 ```
 src/        nmea (sentences), inputs (LCM log, LCM UDP), outputs (UDP/TCP NMEA), status (health JSON), edge_config, main
-configs/    appliance configs (field unit, bench replay)
+configs/    appliance configs (field unit, bench replay); filters/ holds filter configurations of our own
 packaging/  systemd unit
 docs/       DESIGN.md, ROADMAP.md, COMMAND_PROTOCOL.md
 tests/      GoogleTest (NMEA formatting, config, end-to-end replay)

@@ -3,7 +3,11 @@
 //
 //   pnt-edge-serial-sim <log> [--speed 1] [--loop] [--imu binary|ascii] [--gnss ubx|nmea] [--utc-offset 0]
 //                       [--imu-link /tmp/pnt-imu] [--gnss-link /tmp/pnt-gnss] [--imu-channel c] [--gnss-channel c]
+//                       [--velocity-channel c]
 //
+// As a u-blox receiver it sends each fix as one NAV-PVT with the receiver's velocity of the same epoch from the
+// log's velocity channel (default /sensor/ublox-ZED-F9T/velocity; "" for none, and a fix without one goes out
+// with zero velocity and a speed accuracy of 100 m/s, which the driver's velocity channel then reports as such).
 // Prints the two pty paths (and creates the symlinks when asked) and streams until the log ends or forever.
 #include "nmea.hpp"
 #include "serial/nmea_gnss.hpp"
@@ -17,6 +21,7 @@
 
 #include <aspn23/eigen/MeasurementImu.hpp>
 #include <aspn23/eigen/MeasurementPosition.hpp>
+#include <aspn23/eigen/MeasurementVelocity.hpp>
 
 #include <cerrno>
 #include <chrono>
@@ -73,7 +78,8 @@ int main(int argc, char** argv) {
     return 2;
   }
   std::string log = argv[1], imu_mode = "binary", gnss_mode = "ubx", imu_link, gnss_link;
-  std::string imu_channel = "/sensor/vn-100/imu", gnss_channel = "/sensor/ublox-ZED-F9T/position";
+  std::string imu_channel = "/sensor/vn-100/imu", gnss_channel = "/sensor/ublox-ZED-F9T/position",
+              velocity_channel = "/sensor/ublox-ZED-F9T/velocity";
   double speed = 1, utc_offset = 0;
   bool loop = false;
   for (int i = 2; i < argc; ++i) {
@@ -88,6 +94,7 @@ int main(int argc, char** argv) {
     else if (a == "--gnss-link") gnss_link = next();
     else if (a == "--imu-channel") imu_channel = next();
     else if (a == "--gnss-channel") gnss_channel = next();
+    else if (a == "--velocity-channel") velocity_channel = next();
     else {
       std::cerr << "unknown option " << a << "\n";
       return 2;
@@ -113,6 +120,24 @@ int main(int argc, char** argv) {
   const auto wall0 = std::chrono::steady_clock::now();
   std::optional<std::int64_t> t0, first_tov;
   std::int64_t pass_tov_offset = 0, pass_ev_offset = 0, pass = 0;
+  // u-blox: position and velocity of one epoch are two messages of the log and one NAV-PVT of the receiver
+  struct Velocity {
+    std::int64_t t;
+    double n, e, d, sacc;
+  };
+  constexpr std::int64_t kSameEpochNs = 50'000'000;
+  std::optional<Velocity> last_velocity;
+  std::optional<std::pair<std::int64_t, edge::serial::ubx::NavPvt>> pending;
+  auto with_velocity = [](edge::serial::ubx::NavPvt& pvt, const Velocity& v) {
+    pvt.vel_n = v.n, pvt.vel_e = v.e, pvt.vel_d = v.d;
+    pvt.gspeed = std::hypot(v.n, v.e);
+    pvt.head_mot_deg = std::fmod(std::atan2(v.e, v.n) * 180.0 / M_PI + 360.0, 360.0);
+    pvt.sacc = v.sacc;
+  };
+  auto send_pvt = [&gnss](const edge::serial::ubx::NavPvt& pvt) {
+    const auto f = edge::serial::ubx::encode_nav_pvt(pvt);
+    gnss.write(f.data(), f.size());
+  };
   do {
     pntos::cobra::lcm::LcmLogReader reader(log);
     std::optional<std::int64_t> pass_first_t, pass_first_ev;
@@ -120,7 +145,7 @@ int main(int argc, char** argv) {
     while (!g_stop) {
       auto ev = reader.next();
       if (!ev) break;
-      if (ev->channel != imu_channel && ev->channel != gnss_channel) continue;
+      if (ev->channel != imu_channel && ev->channel != gnss_channel && (velocity_channel.empty() || ev->channel != velocity_channel)) continue;
       std::shared_ptr<pntos::api::AspnBase> msg;
       try {
         msg = pntos::cobra::lcm::decode(ev->data);
@@ -204,12 +229,36 @@ int main(int argc, char** argv) {
           pvt.hacc_m = sh * std::sqrt(2.0);
           pvt.vacc_m = sv;
           pvt.pdop = 1.5;
-          const auto f = edge::serial::ubx::encode_nav_pvt(pvt);
-          gnss.write(f.data(), f.size());
+          pvt.sacc = 100.0;  // until a velocity of this epoch is known
+          if (velocity_channel.empty()) {
+            send_pvt(pvt);
+          } else if (last_velocity && std::llabs(last_velocity->t - t) <= kSameEpochNs) {
+            with_velocity(pvt, *last_velocity);
+            send_pvt(pvt);
+          } else {  // the velocity of this epoch may follow the position in the log
+            if (pending) send_pvt(pending->second);
+            pending = std::make_pair(t, pvt);
+          }
         }
         ++gnss_n;
+      } else if (auto* v = dynamic_cast<const aspn23_eigen::MeasurementVelocity*>(msg.get())) {
+        if (velocity_channel.empty() || ev->channel != velocity_channel || gnss_mode == "nmea") continue;
+        if (v->get_reference_frame() != ASPN23_MEASUREMENT_VELOCITY_REFERENCE_FRAME_NED) continue;
+        const auto cov = v->get_covariance();
+        const Velocity vel{t, v->get_x(), v->get_y(), v->get_z(),
+                           cov.rows() >= 3 && cov.cols() >= 3 ? std::sqrt(cov(0, 0) + cov(1, 1) + cov(2, 2)) : 0.5};
+        if (pending && std::llabs(pending->first - t) <= kSameEpochNs) {
+          with_velocity(pending->second, vel);
+          send_pvt(pending->second);
+          pending.reset();
+        } else {
+          last_velocity = vel;
+        }
       }
     }
+    if (pending) send_pvt(pending->second);
+    pending.reset();
+    last_velocity.reset();
     if (pass_first_t) pass_tov_offset += last_t - *pass_first_t + 10'000'000;
     if (pass_first_ev) pass_ev_offset += last_ev - *pass_first_ev + 10'000;
     if (loop && !g_stop) std::cerr << "serial-sim: pass " << ++pass << " done, continuing (" << imu_n << " IMU frames, " << gnss_n << " fixes)\n";

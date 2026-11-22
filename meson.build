@@ -56,4 +56,5 @@ if get_option('tests')
 endif
 
 install_data('configs/pnt-edge.json', install_dir: get_option('sysconfdir') / 'pnt-edge')
+install_data('configs/filters/road_vehicle.json', install_dir: get_option('sysconfdir') / 'pnt-edge' / 'filters')
 install_data('packaging/pnt-edge.service', install_dir: 'lib/systemd/system')
