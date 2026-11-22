@@ -99,9 +99,55 @@ TEST(Integrity, FixQualityAndIntegSentence) {
   s.pace = "EMERGENCY";
   s.excluded = {"gnss", "cell"};
   EXPECT_EQ(edge::fix_quality_for(s, 1), 0);
-  EXPECT_NE(edge::integ_sentence(s).find(",gnss+cell*"), std::string::npos);
+  // the excluded names were the last field until four more were added behind them (November 2026)
+  EXPECT_NE(edge::integ_sentence(s).find(",gnss+cell,"), std::string::npos);
   auto j = edge::integrity_to_json(s);
   EXPECT_EQ(j["pace"], "EMERGENCY");
   EXPECT_EQ(j["excluded"].size(), 2u);
   EXPECT_TRUE(edge::integrity_to_json(none).empty());
+}
+
+TEST(Integrity, TheSentenceCarriesTheVerticalLevelAndWhyASourceIsOut) {
+  // Four fields behind the six the sentence had, so that a reader of those still finds them where they were: the
+  // vertical protection level and alert limit (empty when the vertical is not monitored), the causes of the
+  // exclusions in the order of the excluded names, and the sources that have gone silent.
+  edge::IntegrityStatus s;
+  s.present = true;
+  s.pace = "CONTINGENCY";
+  s.hpl_m = 31.04;
+  s.hal_m = 75.0;
+  s.excluded = {"gnss"};
+  s.vertical = true;
+  s.vpl_m = 50.46;
+  s.val_m = 100.0;
+  s.causes = {"ins_monitor"};
+  s.silent = {"cell"};
+  const std::string full = edge::integ_sentence(s);
+  EXPECT_EQ(full.substr(0, full.find('*')), "$PPNT,INTEG,CONTINGENCY,31.0,75.0,0,0,gnss,50.5,100.0,ins_monitor,cell");
+  s.vertical = false;
+  s.excluded.clear();
+  s.causes.clear();
+  s.silent.clear();
+  const std::string plain = edge::integ_sentence(s);
+  EXPECT_EQ(plain.substr(0, plain.find('*')), "$PPNT,INTEG,CONTINGENCY,31.0,75.0,0,0,,,,,");
+}
+
+TEST(Integrity, TheStatusIsReadFromThePluginsKeys) {
+  // What cobra-integrity v0.2 writes per source ("cause_<name>", "silent_<name>") and for the vertical.
+  const auto raw = nlohmann::json::parse(R"({"pace":"CONTINGENCY","hpl_m":31.0,"hal_m":75.0,"vpl_m":50.5,"val_m":100.0,"alarm":false,
+    "fault_detection_available":false,"excluded":["gnss"],"cause_gnss":"ins_monitor","cause_cell":"","silent_cell":true,"silent_gnss":false,
+    "time_s":12.0})");
+  const edge::IntegrityStatus s = edge::integrity_from_raw(raw);
+  EXPECT_TRUE(s.present);
+  EXPECT_EQ(s.pace, "CONTINGENCY");
+  EXPECT_TRUE(s.vertical);
+  EXPECT_DOUBLE_EQ(s.vpl_m, 50.5);
+  EXPECT_DOUBLE_EQ(s.val_m, 100.0);
+  EXPECT_EQ(s.excluded, (std::vector<std::string>{"gnss"}));
+  EXPECT_EQ(s.causes, (std::vector<std::string>{"ins_monitor"}));
+  EXPECT_EQ(s.silent, (std::vector<std::string>{"cell"}));
+  auto without = raw;
+  without.erase("vpl_m");
+  without.erase("val_m");
+  EXPECT_FALSE(edge::integrity_from_raw(without).vertical);
 }

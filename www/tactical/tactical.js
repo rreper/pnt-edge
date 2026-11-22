@@ -7,7 +7,9 @@ function render({ status, solution }) {
   if (status && status.health) { $('health').textContent = status.health; $('health').className = 'badge ' + healthClass(status.health); }
   const integ = status && status.integrity && status.integrity.pace ? status.integrity : null;
   if (integ) { $('pace').textContent = integ.pace; $('pace').className = 'badge ' + paceClass(integ.pace); $('hal').textContent = fmt.num(integ.hal_m, 0) + ' m';
-    $('excluded').textContent = integ.excluded && integ.excluded.length ? integ.excluded.join(', ') : 'none'; $('alarm').textContent = integ.alarm ? 'ACTIVE' : 'no'; }
+    $('excluded').textContent = integ.excluded && integ.excluded.length ? integ.excluded.map((n, i) => n + (integ.causes && integ.causes[i] ? ' (' + integ.causes[i] + ')' : '')).join(', ') : 'none';
+    $('vpl').textContent = integ.vpl_m !== undefined && integ.val_m !== undefined ? fmt.num(integ.vpl_m, 1) + ' / ' + fmt.num(integ.val_m, 0) + ' m' : '—';
+    $('silent').textContent = integ.silent && integ.silent.length ? integ.silent.join(', ') : 'none'; $('alarm').textContent = integ.alarm ? 'ACTIVE' : 'no'; }
   else { $('pace').className = 'badge hidden'; }
   if (status) { $('age').textContent = fmt.age(status.last_solution_age_sec); const q = status.last_solution ? (integ ? ({PRIMARY:1,ALTERNATE:6,CONTINGENCY:6,EMERGENCY:0}[integ.pace]) : 1) : 0; $('fix').textContent = ['invalid','GPS','DGPS','','RTK','RTK float','estimated'][q] || q; }
   if (solution && solution.t) {

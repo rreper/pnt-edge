@@ -105,5 +105,28 @@ sent zero before, which a filter that listens to the velocity takes for a vehicl
 
 Test: `EdgeConfig.TheRoadVehicleFilterLoadsAndCarriesNothingOfTheExampleRecording`; 29 tests.
 
-Not done: the integrity status keys of cobra-integrity v0.2 in the status file, the web pages and `$PPNT,INTEG`;
-a protected variant of this filter (the keys of `pos_ins_protected1.json`); a run with real devices.
+**The serial path with this filter**, without hardware: `pnt-edge-serial-sim` plays the first ten minutes of the
+recording in real time as a VN-100 and a u-blox, the daemon reads them through its drivers with host time stamps
+(`road_vehicle.json` with the recording's mounting and lever arm). Aligned 138 s into the recording, no error and
+no warning in the daemon's log, the receiver's velocity found 0.31 s old, 1.52 m horizontal RMS (3.0 m at worst)
+and 0.96° of heading (2.1°) over the 460 s that follow.
+
+**Integrity status.** The status file already held every key the integrity plugin writes (43 with cobra-integrity
+v0.2: the vertical protection level, why a source is excluded, which have gone silent, and the rest), and the
+maintenance page's Integrity tab lists them all. The two outputs an operator reads did not: `$PPNT,INTEG` has four
+more fields behind its six, the vertical protection level and alert limit, the cause of each exclusion and the
+silent sources (`docs/COMMAND_PROTOCOL.md`; a reader that counts the fields has to be told), and the tactical page
+shows the same three things. Tests `Integrity.TheSentenceCarriesTheVerticalLevelAndWhyASourceIsOut` and
+`TheStatusIsReadFromThePluginsKeys`; 31 tests in the plain build and in the one with the plugin.
+
+**The integrity plugin on top of this filter does not work yet.** With `"orchestration": "protected"` and the
+integrity keys of cobra-integrity's `pos_ins_protected1.json`, the full recording gives a solution (1.53 m, 0.75°
+of heading, PRIMARY throughout, HPL 7.9 m and VPL 10.6 m in the median), but two of the filter's measurement
+models are refused at every epoch, 4926 velocity updates and 624 zero-rate updates, each with an ERROR line: the
+plugin hands the measurement models the inertial solution and the specific force and not the sensor errors the
+inertial is applying, which Cobra added in v0.2.12 and these two need. That is to be fixed in cobra-integrity
+(`ProtectedOrchestrationPlugin::send_inertial_aux_to_measurement_processor`); until then there is no protected
+variant of `road_vehicle.json`.
+
+Not done: that fix and the protected variant; a run with real devices; the receiver's fix passed on while the
+filter is still aligning.
