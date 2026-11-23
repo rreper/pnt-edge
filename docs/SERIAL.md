@@ -132,6 +132,29 @@ jumps back to the start of the recording at each wrap. That is the configuration
 The test suite drives the same path (`tests/test_serial.cpp`): parsers and encoders, the clock mapping, the serial
 input end to end over ptys with the 60 s log at 20× (every frame pushed, the filter aligns and publishes).
 
+## With the integrity plugin
+
+A build with the plugin (`-Dintegrity=enabled`, README) writes a second filter beside the first,
+`filters/road_vehicle_protected.json`, and installs it to `/etc/pnt-edge/filters/`. To run protected, point
+`filter_config` at it and add `"INTEG"` to the NMEA `sentences`.
+
+It is the same filter with the plugin's settings, and without one thing: the receiver's velocity no longer
+updates it and no longer confirms a standstill. The plugin watches the receiver's position and can exclude it;
+it does not watch the velocity. A velocity that kept coming after the exclusion would carry the filter along with
+a spoofer, who moves position and velocity together, and the output would be reported as trusted while it runs
+away (measured on the example drive: 1.9 km in half an hour). So the velocity serves to find the heading while
+the vehicle first drives, and nothing after. With a good receiver that costs a few centimetres. After an
+exclusion the filter coasts on the IMU, the vehicle constraints and the standstill updates alone, flagged
+EMERGENCY within a minute, and the protection level grows with the coast (`docs/ROADMAP.md` has the figures).
+
+The file is generated from `configs/filters/road_vehicle.json` at build time by the plugin's
+`tools/protect_filter.py`, so it carries the same neutral installation (identity, zeros). For a vehicle, run that
+tool on the installed copy once the mounting and lever arms are in it,
+`protect_filter.py /etc/pnt-edge/filters/road_vehicle.json --out /etc/pnt-edge/filters/road_vehicle_protected.json`,
+or make the same edits in both files. The alert limits (75 m horizontal, 100 m vertical) and the monitor's
+thresholds in its `config/integrity` entry are the plugin's values for a VN-100; its tuning procedure decides
+whether they hold for another unit.
+
 ## Bench checklist for a new installation
 
 1. `ls -l /dev/serial/by-id/` and use those stable names in the config instead of `ttyUSB0`.
@@ -140,7 +163,8 @@ input end to end over ptys with the 60 s log at 20× (every frame pushed, the fi
 3. Run `tools/imu_allan.py` of the Cobra repository on a 30-minute static recording (`record_dir`, then replay
    through the sim or the LCM path) and the private tuning procedure to derive the IMU preset for this unit.
 4. Set the lever arms and the mounting rotation in the filter config (maintenance UI → Config, or `$PPNT,LEVERARM`):
-   `/etc/pnt-edge/filters/road_vehicle.json` has identity and zeros.
+   `/etc/pnt-edge/filters/road_vehicle.json` has identity and zeros. With the integrity plugin, the protected filter needs
+   the same values ("With the integrity plugin" above).
 5. Drive. The filter aligns within some tens of seconds of the first acceleration or bend and logs the heading it
    found and how old it takes the receiver's velocity to be; that second figure is a property of the receiver and
    its settings and is worth writing down.

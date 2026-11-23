@@ -169,3 +169,53 @@ TEST(EdgeConfig, TheRoadVehicleFilterLoadsAndCarriesNothingOfTheExampleRecording
   o.progress = false;
   EXPECT_NO_THROW({ pntos::cobra::Filter filter(app, o); });
 }
+
+TEST(EdgeConfig, TheProtectedRoadVehicleFilterIsTheSameFilterWithoutTheReceiversVelocity) {
+  // Built only with the integrity plugin (meson.build): filters/road_vehicle_protected.json, written from
+  // configs/filters/road_vehicle.json by the plugin's tool. The plugin tests and excludes the receiver's position;
+  // a velocity of the same receiver that kept updating the filter would carry it along with a spoofer after the
+  // exclusion (1.9 km on the example drive, reported as trusted). So the protected filter takes that velocity for
+  // finding its heading at the start and for nothing after.
+  const char* path = std::getenv("PNT_EDGE_PROTECTED_FILTER");
+  if (!path || !*path) GTEST_SKIP() << "built without the integrity plugin";
+  std::ifstream plain_in(src("configs/filters/road_vehicle.json")), protected_in(path);
+  ASSERT_TRUE(plain_in.good());
+  ASSERT_TRUE(protected_in.good()) << path;
+  const auto plain = nlohmann::json::parse(plain_in), prot = nlohmann::json::parse(protected_in);
+  const std::string position = "/sensor/ublox-ZED-F9T/position", velocity = "/sensor/ublox-ZED-F9T/velocity";
+  auto orchestration = [](const nlohmann::json& j) {
+    for (const auto& c : j.at("configs"))
+      if (c.at("type") == "StandardOrchestrationConfig") return c;
+    return nlohmann::json();
+  };
+  const auto a = orchestration(plain), b = orchestration(prot);
+  ASSERT_FALSE(a.is_null());
+  ASSERT_FALSE(b.is_null());
+
+  EXPECT_EQ(prot.at("app").at("orchestration"), "protected");
+  bool monitored = false;
+  for (const auto& c : prot.at("configs"))
+    if (c.value("group", "") == "config/integrity") monitored = c.at("values").at("sources") == nlohmann::json::array({position});
+  EXPECT_TRUE(monitored) << "the integrity settings have to name the receiver's position as the one source";
+
+  // the same filter and the same (neutral) installation
+  for (const char* key : {"inertial_config", "alignment_config", "pinson_sb_config", "alignment_channels", "measurement_reorder_s"})
+    EXPECT_EQ(b.at(key), a.at(key)) << key;
+  // ... of which the receiver's velocity updates nothing and confirms no standstill
+  bool plain_uses_velocity = false;
+  for (const auto& m : a.at("mp_configs")) plain_uses_velocity |= m.at("channel") == velocity;
+  EXPECT_TRUE(plain_uses_velocity) << "road_vehicle.json no longer uses the velocity: this test is void";
+  for (const auto& m : b.at("mp_configs")) {
+    EXPECT_NE(m.at("channel"), velocity);
+    if (m.at("channel") == position) EXPECT_TRUE(m.contains("innovation_gate_probability"));
+  }
+  EXPECT_EQ(b.at("mp_configs").size() + 1, a.at("mp_configs").size());
+  for (const auto& p : b.at("preprocessor_configs"))
+    if (p.contains("confirmation_channels")) EXPECT_TRUE(p.at("confirmation_channels").empty());
+  bool aligns_on_velocity = false;
+  for (const auto& c : b.at("alignment_channels")) aligns_on_velocity |= c == velocity;
+  EXPECT_TRUE(aligns_on_velocity);
+
+  // Cobra reads it (running it takes the plugin, which the daemon registers and this test binary does not)
+  EXPECT_NO_THROW({ pntos::cobra::jsoncfg::load_app_config(path); });
+}

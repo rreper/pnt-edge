@@ -99,4 +99,7 @@ separation, exclusion, protection level, PACE state). Place that plugin's source
 `subprojects/cobra-integrity` (a symlink will do; the directory is ignored by git) and build with
 `.venv/bin/meson setup build -Dintegrity=enabled`; the filter config then selects `"orchestration": "protected"`,
 the GGA fix quality follows the PACE state, `$PPNT,INTEG` is emitted once per epoch and the status file carries
-an `integrity` object (`docs/COMMAND_PROTOCOL.md`). Without it everything behaves as before.
+an `integrity` object (`docs/COMMAND_PROTOCOL.md`). Without it everything behaves as before. Such a build also writes the
+protected form of the road-vehicle filter, `filters/road_vehicle_protected.json`, with the plugin's own tool
+(`docs/SERIAL.md`, "With the integrity plugin": it does without the receiver's velocity once the heading is
+found, and why).

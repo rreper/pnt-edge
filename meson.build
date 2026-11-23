@@ -20,10 +20,21 @@ thread_dep = dependency('threads')
 # "orchestration": "protected" and the integrity status reaches the NMEA stream and the status file.
 extra_deps = []
 extra_args = []
+test_env = ['PNT_EDGE_SRCDIR=' + meson.project_source_root()]
+test_depends = []
 if get_option('integrity').enabled() or (get_option('integrity').auto() and import('fs').is_dir('subprojects/cobra-integrity'))
   integrity_proj = subproject('cobra-integrity', default_options: ['tests=false'])
   extra_deps += integrity_proj.get_variable('integrity_dep')
   extra_args += '-DPNT_EDGE_HAS_INTEGRITY'
+  # The protected road-vehicle filter (filters/road_vehicle_protected.json beside road_vehicle.json) is written from
+  # configs/filters/road_vehicle.json by the plugin's own tool: the two cannot drift apart, and what the tool takes
+  # out of the filter (docs/SERIAL.md, "With the integrity plugin") is decided where the plugin is.
+  protected_filter = custom_target('road_vehicle_protected',
+    input: 'configs/filters/road_vehicle.json', output: 'road_vehicle_protected.json',
+    command: [find_program('python3'), integrity_proj.get_variable('protect_filter'), '@INPUT@', '--out', '@OUTPUT@'],
+    build_by_default: true, install: true, install_dir: get_option('sysconfdir') / 'pnt-edge' / 'filters')
+  test_env += 'PNT_EDGE_PROTECTED_FILTER=' + protected_filter.full_path()
+  test_depends += protected_filter
 endif
 
 edge_inc = include_directories('src', 'third_party')
@@ -51,8 +62,7 @@ if get_option('tests')
   gtest_proj = subproject('gtest')
   test_exe = executable('test_pnt_edge', 'tests/test_nmea.cpp', 'tests/test_edge.cpp', 'tests/test_web.cpp', 'tests/test_update.cpp', 'tests/test_ppnt.cpp', 'tests/test_serial.cpp',
     dependencies: [edge_dep, gtest_proj.get_variable('gtest_main_dep')])
-  test('pnt-edge', test_exe, protocol: 'gtest', timeout: 300,
-    env: ['PNT_EDGE_SRCDIR=' + meson.project_source_root()])
+  test('pnt-edge', test_exe, protocol: 'gtest', timeout: 300, env: test_env, depends: test_depends)
 endif
 
 install_data('configs/pnt-edge.json', install_dir: get_option('sysconfdir') / 'pnt-edge')

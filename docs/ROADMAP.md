@@ -135,5 +135,46 @@ cobra-integrity's `pos_ins_protected1.json`, over the full recording. Two things
 With both: 1.51 m and 0.65° of heading, which is the run without the plugin; PRIMARY throughout; HPL 6.1 m and
 VPL 8.7 m in the median (7.9 m and 10.6 m while the velocity updates were refused).
 
-Not done: a protected variant of `road_vehicle.json` among the configurations; a run with real devices; the
-receiver's fix passed on while the filter is still aligning.
+Not done: a run with real devices; the receiver's fix passed on while the filter is still aligning.
+
+## The protected road-vehicle filter (2026-11-23)
+
+Asked for: `road_vehicle.json` with the integrity settings, among the configurations. Tested before it was
+added, on the recording with the plugin's own runner, faults from 600 s to the end (33 minutes), and that filter
+is not protected. With the fixes pulled at 1 m/s and the velocity untouched all is well (excluded after 5 s, 2.2 m).
+With the velocity off by the same 1 m/s, which is what a spoofer produces, the receiver is excluded after 5 s,
+readmitted after 10 s, and from 30 s on the output is PRIMARY with a 15 m protection level while it runs to
+1.9 km: 1911 of 2444 epochs trusted beyond the alert limit. The plugin excludes the receiver's position and
+knows nothing of its velocity, which goes on updating the filter and carries it to where the fixes went, so the
+readmission test passes. (cobra-integrity `docs/DESIGN.md` §9.)
+
+What is shipped instead is that filter without the receiver's velocity once the heading is found: no velocity
+updates, and the IMU alone decides when the vehicle stands. A build with the plugin writes it from
+`configs/filters/road_vehicle.json` with the plugin's `tools/protect_filter.py` (`meson.build`), as
+`filters/road_vehicle_protected.json`, and installs it beside the plain one. No copy of the filter is kept, and
+the plugin's settings stay in the plugin's repository.
+
+| on the recording | horizontal error RMS / max | what the plugin reports |
+|---|---|---|
+| no fault, through the daemon (the recording's mounting, lever arm and 150 ms) | 1.57 m / 2.9 m, heading 0.66° | PRIMARY throughout, HPL 8.0 m and VPL 10.6 m in the median |
+| the same with `road_vehicle.json` and no plugin, for comparison | 1.51 m, heading 0.65° | |
+| no fault, the file as shipped (identity, zeros) | 2.57 m / 4.4 m, heading 1.15° | PRIMARY throughout, HPL 8.0 m |
+| fixes pulled at 1 m/s (plugin's runner) | 58 m / 180 m over 33 minutes of coasting | excluded 5 s after the pull begins, EMERGENCY within a minute, the protection level never exceeded |
+| fixes and velocity pulled together | the same to the digit | the same |
+| velocity alone off by 1 m/s | 1.58 m / 2.9 m | nothing to report |
+
+Both daemon runs: exit code 0, no ERROR line, 2445 fixes, first output 137 s into the recording. Four zero-rate
+updates near 2060 s were refused by the filter's gate in each: the IMU alone took a slow stretch for a
+standstill there, which the receiver's velocity used to veto.
+
+What doing without the velocity costs: 6 cm and a protection level of 8 m for 6 m while the receiver is good.
+The 58 m of coasting after an exclusion are not part of that cost. A receiver that is excluded goes out with its
+velocity, and cut off as a whole at the same moment the filter that had the velocity until then coasts no better
+(81 m RMS against 64 m, emulated with an outage; the same as far as one drive can tell). The 2 m of the first
+paragraph were the receiver vouching for itself. What shortens the coast is a source that is not the receiver:
+a wheel speed halves a two-minute outage in Cobra's tests (its `docs/DESIGN.md` §7.23), and pnt-edge has no
+input for one yet.
+
+Test: `EdgeConfig.TheProtectedRoadVehicleFilterIsTheSameFilterWithoutTheReceiversVelocity` (skipped in a build
+without the plugin); 32 tests with the plugin, 31 and one skipped without. Not done: the protected filter on the
+serial path; a `pnt-edge-serial` example that names it (`docs/SERIAL.md` says which two lines change).

@@ -8,6 +8,8 @@
   //    heading from it while the vehicle drives, and takes its word for a standstill.
   //  - The filter is configs/filters/road_vehicle.json. It carries nothing of any one installation: put how the IMU
   //    is mounted (C_imu_to_platform, twice) and where the antenna is (lever_arm, twice) into the installed copy.
+  //    A build with the integrity plugin installs road_vehicle_protected.json beside it: to run protected, name that
+  //    file here and add "INTEG" to the sentences (docs/SERIAL.md, "With the integrity plugin").
   // Times are stamped on the host clock with the device latency removed; the receiver's UTC corrects the NMEA
   // output ("utc_from_receiver"). Sigmas come from the receiver (hAcc / vAcc) with a 0.3 m floor.
   "filter_config": "/etc/pnt-edge/filters/road_vehicle.json",
